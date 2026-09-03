@@ -1,0 +1,171 @@
+{
+  "entities": {
+    "Car": {
+      "title": "Car",
+      "description": "A vehicle listing in the dealership inventory with technical inspection",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 200 },
+        "brand": { "type": "string", "maxLength": 100 },
+        "model": { "type": "string", "maxLength": 100 },
+        "year": { "type": "number" },
+        "priceUsd": { "type": "number" },
+        "priceArs": { "type": "number" },
+        "priceOnDemand": { "type": "boolean" },
+        "km": { "type": "number" },
+        "hours": { "type": "string", "maxLength": 50 },
+        "licensePlate": { "type": "string", "maxLength": 50 },
+        "transmission": { "type": "string", "enum": ["Automática", "Manual"] },
+        "fuel": { "type": "string", "enum": ["Nafta", "Diésel", "Híbrido", "Eléctrico"] },
+        "bodyType": { "type": "string", "enum": ["Sedán", "SUV", "Hatchback", "Pick-up", "Coupé", "Camión", "Utilitario", "Maquinaria"] },
+        "color": { "type": "string", "maxLength": 50 },
+        "engine": { "type": "string", "maxLength": 150 },
+        "doors": { "type": "number" },
+        "traction": { "type": "string", "maxLength": 50 },
+        "location": { "type": "string", "maxLength": 200 },
+        "locationUnit": { "type": "string", "maxLength": 200 },
+        "contactPerson": { "type": "string", "maxLength": 100 },
+        "contactPhone": { "type": "string", "maxLength": 50 },
+        "images": { "type": "array" },
+        "featured": { "type": "boolean" },
+        "status": { "type": "string", "enum": ["Disponible", "Reservado", "Vendido"] },
+        "singleOwner": { "type": "boolean" },
+        "officialServices": { "type": "boolean" },
+        "conditionDisclaimer": { "type": "string", "maxLength": 2000 },
+        "equipment": { "type": "array" },
+        "description": { "type": "string", "maxLength": 3000 },
+        "inspection": { "type": "object" },
+        "createdAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "title", "brand", "model", "year", "priceUsd", "km", "status"]
+    },
+    "Inquiry": {
+      "title": "Inquiry",
+      "description": "A customer inquiry, appraisal request or contact message",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "carId": { "type": "string", "maxLength": 128 },
+        "carTitle": { "type": "string", "maxLength": 200 },
+        "type": { "type": "string", "enum": ["Consulta", "TestDrive", "Financiacion", "Financiación", "Tasacion", "Tasación", "Permuta", "Visita"] },
+        "name": { "type": "string", "maxLength": 100 },
+        "phone": { "type": "string", "maxLength": 50 },
+        "email": { "type": "string", "maxLength": 100 },
+        "message": { "type": "string", "maxLength": 2000 },
+        "tradeInCar": { "type": "object" },
+        "financingDownPayment": { "type": "number" },
+        "financingInstallments": { "type": "number" },
+        "status": { "type": "string", "enum": ["Pendiente", "Contactado", "Cerrado"] },
+        "createdAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "type", "name", "phone", "email", "status", "createdAt"]
+    },
+    "Review": {
+      "title": "Review",
+      "description": "Customer feedback and satisfaction rating",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "author": { "type": "string", "maxLength": 100 },
+        "name": { "type": "string", "maxLength": 100 },
+        "city": { "type": "string", "maxLength": 100 },
+        "rating": { "type": "number" },
+        "comment": { "type": "string", "maxLength": 1000 },
+        "carPurchased": { "type": "string", "maxLength": 100 },
+        "vehicleBought": { "type": "string", "maxLength": 100 },
+        "userAvatar": { "type": "string", "maxLength": 500 },
+        "date": { "type": "string", "maxLength": 50 },
+        "approved": { "type": "boolean" }
+      },
+      "required": ["id", "rating", "comment", "date", "approved"]
+    },
+    "Customer": {
+      "title": "Customer",
+      "description": "CRM client database record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 100 },
+        "phone": { "type": "string", "maxLength": 50 },
+        "email": { "type": "string", "maxLength": 100 },
+        "documentId": { "type": "string", "maxLength": 50 },
+        "address": { "type": "string", "maxLength": 200 },
+        "city": { "type": "string", "maxLength": 100 },
+        "status": { "type": "string", "enum": ["VIP", "Cliente Activo", "Prospecto", "Inactivo", "En Negociación"] },
+        "interestedIn": { "type": "string", "maxLength": 200 },
+        "totalInquiriesCount": { "type": "number" },
+        "totalPurchasesCount": { "type": "number" },
+        "notes": { "type": "string", "maxLength": 2000 },
+        "createdAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "name", "phone", "email", "status", "createdAt"]
+    },
+    "Quotation": {
+      "title": "Quotation",
+      "description": "Formal sales proposal and finance quotation",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "code": { "type": "string", "maxLength": 50 },
+        "customerId": { "type": "string", "maxLength": 128 },
+        "customerName": { "type": "string", "maxLength": 100 },
+        "customerPhone": { "type": "string", "maxLength": 50 },
+        "customerEmail": { "type": "string", "maxLength": 100 },
+        "vehicleId": { "type": "string", "maxLength": 128 },
+        "vehicleTitle": { "type": "string", "maxLength": 200 },
+        "vehicleYear": { "type": "number" },
+        "vehiclePriceUsd": { "type": "number" },
+        "tradeInVehicle": { "type": "string", "maxLength": 150 },
+        "tradeInValueUsd": { "type": "number" },
+        "downPaymentUsd": { "type": "number" },
+        "financingAmountUsd": { "type": "number" },
+        "installmentCount": { "type": "number" },
+        "monthlyInstallmentUsd": { "type": "number" },
+        "finalPriceUsd": { "type": "number" },
+        "status": { "type": "string", "enum": ["Borrador", "Enviada", "En Negociación", "Aprobada", "Rechazada", "Vencida"] },
+        "validityDays": { "type": "number" },
+        "notes": { "type": "string", "maxLength": 2000 },
+        "createdAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "code", "customerName", "vehicleTitle", "vehiclePriceUsd", "finalPriceUsd", "status", "createdAt"]
+    },
+    "Admin": {
+      "title": "Admin",
+      "description": "System administrator identity",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "maxLength": 100 },
+        "role": { "type": "string", "enum": ["admin", "superadmin"] },
+        "createdAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["email", "role"]
+    }
+  },
+  "firestore": {
+    "/cars/{carId}": {
+      "schema": "Car",
+      "description": "Inventory of luxury pre-owned vehicles"
+    },
+    "/inquiries/{inquiryId}": {
+      "schema": "Inquiry",
+      "description": "Customer inquiries, trade-in requests and financing applications"
+    },
+    "/reviews/{reviewId}": {
+      "schema": "Review",
+      "description": "Client reviews and ratings"
+    },
+    "/customers/{customerId}": {
+      "schema": "Customer",
+      "description": "CRM customer records"
+    },
+    "/quotations/{quotationId}": {
+      "schema": "Quotation",
+      "description": "Commercial quotations and formal proposals"
+    },
+    "/admins/{adminId}": {
+      "schema": "Admin",
+      "description": "Designated administrator records for authorization"
+    }
+  }
+}

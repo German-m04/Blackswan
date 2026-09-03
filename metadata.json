@@ -1,0 +1,6 @@
+{
+  "name": "Black Swan - Autos Usados",
+  "description": "Concesionaria de autos usados seleccionados Black Swan. Catálogo interactivo, cotizaciones, reseñas de clientes, ubicación y panel de administración.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
