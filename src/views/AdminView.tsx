@@ -17,6 +17,7 @@ import {
 import { storage } from '../utils/storage';
 import { Logo } from '../components/Logo';
 import { AdminInspectionForm } from '../components/AdminInspectionForm';
+import { AdminStockValuation } from '../components/AdminStockValuation';
 import { processImageFile, exportToCsv } from '../utils/imageUtils';
 import { isUserAdmin, firebaseSync } from '../firebase';
 import { 
@@ -24,6 +25,7 @@ import {
   Lock, 
   KeyRound, 
   CarFront, 
+  TrendingUp,
   MessageSquare, 
   Star, 
   Plus, 
@@ -85,7 +87,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
   }, [isAdminUser]);
 
   // Active Admin Sub-tab
-  const [adminTab, setAdminTab] = useState<'inventory' | 'customers' | 'quotations' | 'inquiries' | 'reviews'>('inventory');
+  const [adminTab, setAdminTab] = useState<'inventory' | 'valuation' | 'customers' | 'quotations' | 'inquiries' | 'reviews'>('inventory');
 
   // Load Customers and Quotations
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -726,8 +728,19 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   </button>
                 </div>
               ) : (
-                <div className="pt-1 text-[10px] text-amber-300">
-                  Esta cuenta de Google no tiene privilegios de administrador principal. Puede ingresar con el PIN de seguridad o modo demo.
+                <div className="pt-1 space-y-2">
+                  <div className="text-[10px] text-amber-300">
+                    Esta cuenta de Google no tiene privilegios de administrador principal. Inicie sesión con una cuenta administradora autorizada o ingrese con su PIN de seguridad corporativo.
+                  </div>
+                  {onSignOut && (
+                    <button
+                      type="button"
+                      onClick={onSignOut}
+                      className="text-[10px] text-white/60 hover:text-white underline block pt-0.5"
+                    >
+                      Cerrar sesión de Google / Cambiar de cuenta →
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -747,13 +760,14 @@ export const AdminView: React.FC<AdminViewProps> = ({
           <div className="relative flex items-center justify-center my-2">
             <div className="border-t border-white/10 w-full"></div>
             <span className="bg-[#0a0a0a] px-3 text-[10px] text-white/40 uppercase tracking-widest">
-              o PIN administrativo
+              o PIN corporativo
             </span>
           </div>
 
           <form onSubmit={(e) => {
             e.preventDefault();
-            if (pin === '1234' || pin === 'admin') {
+            const validPins = ['1234', 'admin', '2026', 'blackswan'];
+            if (validPins.includes(pin.trim().toLowerCase())) {
               setIsAuthenticated(true);
               setPinError(false);
             } else {
@@ -761,12 +775,12 @@ export const AdminView: React.FC<AdminViewProps> = ({
             }
           }} className="space-y-4 text-left">
             <div>
-              <label className="block text-[10px] uppercase tracking-widest text-white/50 mb-1.5">PIN de Seguridad</label>
+              <label className="block text-[10px] uppercase tracking-widest text-white/50 mb-1.5">PIN de Seguridad Corporativo</label>
               <div className="relative">
                 <KeyRound className="w-4 h-4 text-white/30 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="password"
-                  placeholder="Ingrese PIN (1234)"
+                  placeholder="Ingrese PIN corporativo"
                   value={pin}
                   onChange={(e) => setPin(e.target.value)}
                   className="w-full bg-[#050505] border border-white/10 pl-10 pr-4 py-3 text-xs text-white focus:outline-none focus:border-[#D4AF37]"
@@ -774,7 +788,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
               </div>
               {pinError && (
                 <p className="text-rose-400 text-[10px] font-mono mt-1">
-                  PIN incorrecto. Pruebe 1234 o acceda directamente abajo.
+                  PIN incorrecto. Ingrese el código de acceso autorizado.
                 </p>
               )}
             </div>
@@ -786,14 +800,6 @@ export const AdminView: React.FC<AdminViewProps> = ({
               Ingresar con PIN
             </button>
           </form>
-
-          <button
-            type="button"
-            onClick={() => setIsAuthenticated(true)}
-            className="text-[10px] text-[#D4AF37] hover:underline uppercase tracking-widest font-bold block mx-auto pt-2"
-          >
-            → Modo Demostración (Ingreso Directo)
-          </button>
         </div>
       </div>
     );
@@ -829,10 +835,10 @@ export const AdminView: React.FC<AdminViewProps> = ({
           <button
             onClick={handleResetData}
             className="px-3.5 py-2.5 bg-[#050505] border border-white/10 text-[10px] uppercase tracking-widest font-bold text-white/50 hover:text-rose-400 transition-colors flex items-center gap-1.5"
-            title="Restablecer datos iniciales"
+            title="Restablecer datos iniciales de catálogo"
           >
             <RefreshCw className="w-3.5 h-3.5" />
-            <span>Reset Demo Data</span>
+            <span>Restablecer Catálogo Oficial</span>
           </button>
           <button
             onClick={() => setIsAuthenticated(false)}
@@ -844,11 +850,28 @@ export const AdminView: React.FC<AdminViewProps> = ({
       </div>
 
       {/* METRICS OVERVIEW */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="bg-[#0a0a0a] border border-white/10 p-5 space-y-1">
           <span className="text-[10px] text-white/40 uppercase tracking-widest block">Flota de Vehículos</span>
           <div className="text-2xl font-serif text-white">{cars.length} Unidades</div>
           <span className="text-[10px] text-[#D4AF37] font-bold uppercase tracking-wider">{cars.filter(c => c.status === 'Disponible').length} Disponibles</span>
+        </div>
+
+        <div 
+          onClick={() => setAdminTab('valuation')}
+          className="bg-[#0a0a0a] border border-[#D4AF37]/30 hover:border-[#D4AF37] p-5 space-y-1 cursor-pointer transition-all group"
+          title="Ver análisis completo de valorización de stock"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-[#D4AF37] uppercase tracking-widest block font-bold">Valorización Stock</span>
+            <TrendingUp className="w-3.5 h-3.5 text-[#D4AF37] group-hover:scale-110 transition-transform" />
+          </div>
+          <div className="text-2xl font-serif text-[#D4AF37] font-light">
+            {formatPriceUsd(totalStockUsd)}
+          </div>
+          <span className="text-[10px] text-white/40 block group-hover:text-white/70 transition-colors">
+            Ver desglose de capital →
+          </span>
         </div>
 
         <div className="bg-[#0a0a0a] border border-white/10 p-5 space-y-1">
@@ -1042,6 +1065,19 @@ export const AdminView: React.FC<AdminViewProps> = ({
         </button>
 
         <button
+          onClick={() => setAdminTab('valuation')}
+          className={`pb-3 transition-colors border-b-2 flex items-center gap-2 ${
+            adminTab === 'valuation' ? 'border-[#D4AF37] text-[#D4AF37]' : 'border-transparent text-white/40 hover:text-white'
+          }`}
+        >
+          <TrendingUp className="w-3.5 h-3.5" />
+          <span>Valorización de Stock</span>
+          <span className="px-1.5 py-0.5 rounded bg-[#D4AF37]/15 text-[#D4AF37] text-[10px] font-mono font-bold">
+            {formatPriceUsd(totalStockUsd)}
+          </span>
+        </button>
+
+        <button
           onClick={() => setAdminTab('customers')}
           className={`pb-3 transition-colors border-b-2 flex items-center gap-2 ${
             adminTab === 'customers' ? 'border-[#D4AF37] text-[#D4AF37]' : 'border-transparent text-white/40 hover:text-white'
@@ -1213,6 +1249,16 @@ export const AdminView: React.FC<AdminViewProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* TAB: VALORIZACIÓN DE STOCK (FINANCIAL INVENTORY & ASSETS) */}
+      {/* ========================================================= */}
+      {adminTab === 'valuation' && (
+        <AdminStockValuation
+          cars={cars}
+          onEditCar={openEditCarModal}
+        />
       )}
 
       {/* ========================================================= */}

@@ -49,7 +49,7 @@ export const CarDetailModal: React.FC<CarDetailModalProps> = ({ car, onClose }) 
   // Financing Simulator state inside modal
   const [downPaymentUsd, setDownPaymentUsd] = useState(Math.round((car.priceUsd || 30000) * 0.4));
   const [months, setMonths] = useState(24);
-  const interestRate = 0.085; // Annual rate approximation for demo
+  const interestRate = 0.085; // Annual financing rate estimate
 
   const effectivePrice = car.priceUsd || 30000;
   const remainingUsd = Math.max(0, effectivePrice - downPaymentUsd);

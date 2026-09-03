@@ -115,11 +115,17 @@ export async function logOut(): Promise<void> {
   }
 }
 
-export const ADMIN_EMAIL = 'GermanMountrichas@gmail.com';
+export const ADMIN_EMAILS = [
+  'blackswan202614@gmail.com',
+  'GermanMountrichas@gmail.com'
+];
+
+export const ADMIN_EMAIL = 'blackswan202614@gmail.com';
 
 export function isUserAdmin(user: User | null): boolean {
-  if (!user) return false;
-  return user.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+  if (!user || !user.email) return false;
+  const normalizedEmail = user.email.trim().toLowerCase();
+  return ADMIN_EMAILS.some((admin) => admin.toLowerCase() === normalizedEmail);
 }
 
 /**

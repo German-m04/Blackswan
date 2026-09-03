@@ -106,6 +106,22 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Action Button & Auth */}
         <div className="hidden lg:flex items-center gap-3">
+          {/* Admin Entry Button - Visible to all users */}
+          <button
+            onClick={() => onNavigate('admin')}
+            className={`px-3 py-2 border text-[10px] uppercase font-semibold tracking-wider transition-all flex items-center gap-1.5 ${
+              currentTab === 'admin'
+                ? 'bg-[#D4AF37] text-black border-[#D4AF37] font-bold shadow-[0_0_15px_rgba(212,175,55,0.25)]'
+                : isAdmin
+                ? 'bg-[#D4AF37]/15 hover:bg-[#D4AF37]/25 border-[#D4AF37]/40 text-[#D4AF37]'
+                : 'bg-white/5 hover:bg-white/10 border-white/15 text-white/80 hover:text-[#D4AF37] hover:border-[#D4AF37]/40'
+            }`}
+            title="Ingresar como Administrador / Panel de Gestión"
+          >
+            <ShieldCheck className={`w-3.5 h-3.5 ${currentTab === 'admin' ? 'text-black' : 'text-[#D4AF37]'}`} />
+            <span>{isAdmin ? 'Panel Admin' : 'Ingresar como Administrador'}</span>
+          </button>
+
           {user ? (
             <div className="flex items-center gap-2.5 px-3 py-1.5 bg-white/5 border border-white/10 rounded-none">
               {user.photoURL ? (
@@ -128,18 +144,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </span>
                 )}
               </div>
-              {isAdmin && (
-                <button
-                  onClick={() => onNavigate('admin')}
-                  className="p-1 text-[#D4AF37] hover:text-white transition-colors"
-                  title="Panel de Administración"
-                >
-                  <ShieldCheck className="w-4 h-4" />
-                </button>
-              )}
               <button
                 onClick={onSignOut}
-                className="p-1 text-white/40 hover:text-rose-400 transition-colors"
+                className="p-1 text-white/40 hover:text-rose-400 transition-colors ml-0.5"
                 title="Cerrar sesión"
               >
                 <LogOut className="w-3.5 h-3.5" />
@@ -205,6 +212,29 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             );
           })}
+
+          {/* Mobile Admin Navigation Option - Accessible to all */}
+          <button
+            onClick={() => {
+              onNavigate('admin');
+              setMobileMenuOpen(false);
+            }}
+            className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-xs uppercase tracking-widest font-semibold transition-all ${
+              currentTab === 'admin'
+                ? 'bg-[#D4AF37] text-black font-bold'
+                : isAdmin
+                ? 'bg-[#D4AF37]/15 text-[#D4AF37] border border-[#D4AF37]/30'
+                : 'bg-white/5 text-white/90 hover:bg-white/10 border border-white/15'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <ShieldCheck className={`w-4 h-4 ${currentTab === 'admin' ? 'text-black' : 'text-[#D4AF37]'}`} />
+              <span>{isAdmin ? 'Panel de Administración' : 'Ingresar como Administrador'}</span>
+            </div>
+            <span className={`text-[10px] font-mono ${currentTab === 'admin' ? 'text-black/70' : 'text-[#D4AF37]'}`}>
+              {isAdmin ? 'Activo' : 'Acceder →'}
+            </span>
+          </button>
 
           {/* Mobile Auth Button */}
           <div className="pt-2">
