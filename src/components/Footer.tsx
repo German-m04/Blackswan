@@ -5,6 +5,7 @@ import {
   Mail, 
   Clock, 
   ShieldCheck, 
+  LogIn,
   Instagram, 
   Facebook, 
   MessageCircle,
@@ -90,8 +91,8 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
                   onClick={() => onNavigate('admin')} 
                   className="hover:text-[#D4AF37] text-white/40 transition-colors flex items-center gap-1.5"
                 >
-                  <ShieldCheck className="w-3.5 h-3.5 text-[#D4AF37]" />
-                  <span>Ingresar como Administrador</span>
+                  <LogIn className="w-3.5 h-3.5 text-[#D4AF37]" />
+                  <span>Ingresar</span>
                 </button>
               </li>
             </ul>

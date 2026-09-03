@@ -11,6 +11,7 @@ import {
   X, 
   Sparkles,
   ChevronRight,
+  ArrowLeft,
   ShieldCheck,
   LogIn,
   LogOut,
@@ -77,52 +78,52 @@ export const Navbar: React.FC<NavbarProps> = ({
           <Logo size="md" showText={true} />
         </button>
 
-        {/* Desktop Nav Links */}
-        <nav className="hidden md:flex items-center space-x-6">
-          {navItems.map((item) => {
-            const isActive = currentTab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => handleItemClick(item.id)}
-                className={`text-[11px] uppercase tracking-[0.2em] transition-all relative py-1 flex items-center gap-1.5 ${
-                  isActive
-                    ? 'text-[#D4AF37] font-semibold border-b border-[#D4AF37]'
-                    : 'text-white/60 hover:text-white'
-                }`}
-              >
-                <span>{item.label}</span>
-                {item.badge !== undefined && (
-                  <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-mono ${
-                    isActive ? 'bg-[#D4AF37] text-black font-bold' : 'bg-white/10 text-white/70'
-                  }`}>
-                    {item.badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </nav>
+        {/* Desktop Nav Links (Hidden in Admin Tab) */}
+        {currentTab === 'admin' ? (
+          <div className="hidden md:flex items-center gap-2 px-3.5 py-1 bg-[#D4AF37]/10 border border-[#D4AF37]/30 text-[#D4AF37] text-[10px] uppercase font-bold tracking-widest">
+            <ShieldCheck className="w-3.5 h-3.5 text-[#D4AF37]" />
+            <span>Panel de Control Ejecutivo</span>
+          </div>
+        ) : (
+          <nav className="hidden md:flex items-center space-x-6">
+            {navItems.map((item) => {
+              const isActive = currentTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => handleItemClick(item.id)}
+                  className={`text-[11px] uppercase tracking-[0.2em] transition-all relative py-1 flex items-center gap-1.5 ${
+                    isActive
+                      ? 'text-[#D4AF37] font-semibold border-b border-[#D4AF37]'
+                      : 'text-white/60 hover:text-white'
+                  }`}
+                >
+                  <span>{item.label}</span>
+                  {item.badge !== undefined && (
+                    <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-mono ${
+                      isActive ? 'bg-[#D4AF37] text-black font-bold' : 'bg-white/10 text-white/70'
+                    }`}>
+                      {item.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+        )}
 
         {/* Action Button & Auth */}
         <div className="hidden lg:flex items-center gap-3">
-          {/* Admin Entry Button - Visible to all users */}
-          <button
-            onClick={() => onNavigate('admin')}
-            className={`px-3 py-2 border text-[10px] uppercase font-semibold tracking-wider transition-all flex items-center gap-1.5 ${
-              currentTab === 'admin'
-                ? 'bg-[#D4AF37] text-black border-[#D4AF37] font-bold shadow-[0_0_15px_rgba(212,175,55,0.25)]'
-                : isAdmin
-                ? 'bg-[#D4AF37]/15 hover:bg-[#D4AF37]/25 border-[#D4AF37]/40 text-[#D4AF37]'
-                : 'bg-white/5 hover:bg-white/10 border-white/15 text-white/80 hover:text-[#D4AF37] hover:border-[#D4AF37]/40'
-            }`}
-            title="Ingresar como Administrador / Panel de Gestión"
-          >
-            <ShieldCheck className={`w-3.5 h-3.5 ${currentTab === 'admin' ? 'text-black' : 'text-[#D4AF37]'}`} />
-            <span>{isAdmin ? 'Panel Admin' : 'Ingresar como Administrador'}</span>
-          </button>
-
-          {user ? (
+          {currentTab === 'admin' ? (
+            <button
+              onClick={() => handleItemClick('home')}
+              className="px-3.5 py-2 bg-white/5 hover:bg-white/10 border border-white/15 hover:border-[#D4AF37]/50 text-white/90 hover:text-white text-[10px] uppercase tracking-wider font-semibold transition-all flex items-center gap-1.5"
+              title="Volver a la tienda pública"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 text-[#D4AF37]" />
+              <span>Volver al Sitio Web</span>
+            </button>
+          ) : user ? (
             <div className="flex items-center gap-2.5 px-3 py-1.5 bg-white/5 border border-white/10 rounded-none">
               {user.photoURL ? (
                 <img 
@@ -145,6 +146,13 @@ export const Navbar: React.FC<NavbarProps> = ({
                 )}
               </div>
               <button
+                onClick={() => onNavigate('admin')}
+                className="p-1 text-[#D4AF37] hover:text-white transition-colors ml-1"
+                title="Panel de Administración"
+              >
+                <ShieldCheck className="w-4 h-4" />
+              </button>
+              <button
                 onClick={onSignOut}
                 className="p-1 text-white/40 hover:text-rose-400 transition-colors ml-0.5"
                 title="Cerrar sesión"
@@ -153,23 +161,35 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             </div>
           ) : (
+            /* Single unified button fulfilling both admin & Google sign-in */
             <button
-              onClick={onSignIn}
-              className="px-3.5 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 hover:text-white text-[10px] uppercase font-semibold tracking-wider transition-all flex items-center gap-1.5"
-              title="Iniciar sesión con Google (Firebase)"
+              onClick={async () => {
+                onNavigate('admin');
+                if (onSignIn) {
+                  try {
+                    await onSignIn();
+                  } catch (err) {
+                    console.log('Sign-in processed', err);
+                  }
+                }
+              }}
+              className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/15 hover:border-[#D4AF37] text-white hover:text-[#D4AF37] text-[10px] uppercase font-semibold tracking-wider transition-all flex items-center gap-1.5"
+              title="Ingresar y acceder al Panel de Administración"
             >
-              <LogIn className="w-3 h-3 text-[#D4AF37]" />
+              <LogIn className="w-3.5 h-3.5 text-[#D4AF37]" />
               <span>Ingresar</span>
             </button>
           )}
 
-          <button
-            onClick={() => handleItemClick('contact')}
-            className="px-5 py-2.5 bg-[#D4AF37] hover:bg-[#c4a02e] text-black text-[10px] uppercase font-bold tracking-widest transition-all flex items-center gap-2 shadow-[0_0_15px_rgba(212,175,55,0.2)]"
-          >
-            <span>Tasá tu Usado</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
+          {currentTab !== 'admin' && (
+            <button
+              onClick={() => handleItemClick('contact')}
+              className="px-5 py-2.5 bg-[#D4AF37] hover:bg-[#c4a02e] text-black text-[10px] uppercase font-bold tracking-widest transition-all flex items-center gap-2 shadow-[0_0_15px_rgba(212,175,55,0.2)]"
+            >
+              <span>Tasá tu Usado</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
 
         {/* Mobile Hamburger Toggle */}
@@ -187,104 +207,146 @@ export const Navbar: React.FC<NavbarProps> = ({
       {/* Mobile Drawer */}
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-white/10 bg-[#050505]/98 backdrop-blur-xl px-4 pt-4 pb-6 mt-3 space-y-3">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = currentTab === item.id;
-            return (
+          {currentTab === 'admin' ? (
+            <div className="space-y-3">
               <button
-                key={item.id}
-                onClick={() => handleItemClick(item.id)}
-                className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-xs uppercase tracking-widest font-semibold transition-all ${
-                  isActive
-                    ? 'bg-[#D4AF37]/10 text-[#D4AF37] border border-[#D4AF37]/30'
-                    : 'text-white/70 hover:bg-white/5'
-                }`}
+                onClick={() => handleItemClick('home')}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#D4AF37] text-black text-xs uppercase font-bold tracking-wider"
               >
-                <div className="flex items-center gap-3">
-                  <Icon className={`w-4 h-4 ${isActive ? 'text-[#D4AF37]' : 'text-white/40'}`} />
-                  <span>{item.label}</span>
-                </div>
-                {item.badge !== undefined && (
-                  <span className="text-[10px] px-2 py-0.5 rounded bg-white/10 text-white/80 font-mono">
-                    {item.badge}
-                  </span>
-                )}
+                <ArrowLeft className="w-4 h-4" />
+                <span>Volver al Sitio Web Principal</span>
               </button>
-            );
-          })}
 
-          {/* Mobile Admin Navigation Option - Accessible to all */}
-          <button
-            onClick={() => {
-              onNavigate('admin');
-              setMobileMenuOpen(false);
-            }}
-            className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-xs uppercase tracking-widest font-semibold transition-all ${
-              currentTab === 'admin'
-                ? 'bg-[#D4AF37] text-black font-bold'
-                : isAdmin
-                ? 'bg-[#D4AF37]/15 text-[#D4AF37] border border-[#D4AF37]/30'
-                : 'bg-white/5 text-white/90 hover:bg-white/10 border border-white/15'
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <ShieldCheck className={`w-4 h-4 ${currentTab === 'admin' ? 'text-black' : 'text-[#D4AF37]'}`} />
-              <span>{isAdmin ? 'Panel de Administración' : 'Ingresar como Administrador'}</span>
-            </div>
-            <span className={`text-[10px] font-mono ${currentTab === 'admin' ? 'text-black/70' : 'text-[#D4AF37]'}`}>
-              {isAdmin ? 'Activo' : 'Acceder →'}
-            </span>
-          </button>
-
-          {/* Mobile Auth Button */}
-          <div className="pt-2">
-            {user ? (
-              <div className="flex items-center justify-between p-3 bg-white/5 border border-white/10 text-xs">
-                <div className="flex items-center gap-2">
-                  {user.photoURL ? (
-                    <img 
-                      src={user.photoURL} 
-                      alt="avatar" 
-                      className="w-6 h-6 rounded-full object-cover"
-                      referrerPolicy="no-referrer"
-                    />
-                  ) : (
-                    <UserIcon className="w-4 h-4 text-[#D4AF37]" />
-                  )}
-                  <span className="text-white/90 text-xs font-medium">{user.displayName || user.email}</span>
+              {user ? (
+                <div className="flex items-center justify-between p-3 bg-white/5 border border-white/10 text-xs">
+                  <div className="flex items-center gap-2">
+                    {user.photoURL ? (
+                      <img 
+                        src={user.photoURL} 
+                        alt="avatar" 
+                        className="w-6 h-6 rounded-full object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <UserIcon className="w-4 h-4 text-[#D4AF37]" />
+                    )}
+                    <span className="text-white/90 text-xs font-medium">{user.displayName || user.email}</span>
+                  </div>
+                  <button
+                    onClick={onSignOut}
+                    className="text-rose-400 text-xs uppercase tracking-wider font-bold"
+                  >
+                    Salir
+                  </button>
                 </div>
+              ) : (
                 <button
-                  onClick={onSignOut}
-                  className="text-rose-400 text-xs uppercase tracking-wider"
+                  onClick={() => {
+                    onSignIn();
+                    setMobileMenuOpen(false);
+                  }}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 border border-white/10 bg-white/5 text-white text-xs uppercase tracking-wider font-semibold"
                 >
-                  Salir
+                  <LogIn className="w-4 h-4 text-[#D4AF37]" />
+                  <span>Conectar Cuenta Google</span>
                 </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => {
-                  onSignIn();
-                  setMobileMenuOpen(false);
-                }}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 border border-white/10 bg-white/5 text-white text-xs uppercase tracking-wider font-semibold"
-              >
-                <LogIn className="w-4 h-4 text-[#D4AF37]" />
-                <span>Ingresar con Google</span>
-              </button>
-            )}
-          </div>
+              )}
+            </div>
+          ) : (
+            <>
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = currentTab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => handleItemClick(item.id)}
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-xs uppercase tracking-widest font-semibold transition-all ${
+                      isActive
+                        ? 'bg-[#D4AF37]/10 text-[#D4AF37] border border-[#D4AF37]/30'
+                        : 'text-white/70 hover:bg-white/5'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Icon className={`w-4 h-4 ${isActive ? 'text-[#D4AF37]' : 'text-white/40'}`} />
+                      <span>{item.label}</span>
+                    </div>
+                    {item.badge !== undefined && (
+                      <span className="text-[10px] px-2 py-0.5 rounded bg-white/10 text-white/80 font-mono">
+                        {item.badge}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
 
-          <div className="pt-4 border-t border-white/10 flex flex-col gap-2">
-            <a
-              href="https://wa.me/5491140008888?text=Hola%20Black%20Swan,%20quiero%20consultar%20por%20un%20auto"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-xs uppercase tracking-widest font-bold bg-emerald-600/90 text-white hover:bg-emerald-500 transition-all"
-            >
-              <MessageCircle className="w-4 h-4" />
-              <span>Consultar por WhatsApp</span>
-            </a>
-          </div>
+              {/* Mobile Auth & Admin Entry - Single Unified Button */}
+              <div className="pt-2">
+                {user ? (
+                  <div className="flex items-center justify-between p-3 bg-white/5 border border-white/10 text-xs">
+                    <button
+                      onClick={() => {
+                        onNavigate('admin');
+                        setMobileMenuOpen(false);
+                      }}
+                      className="flex items-center gap-2 text-left"
+                    >
+                      {user.photoURL ? (
+                        <img 
+                          src={user.photoURL} 
+                          alt="avatar" 
+                          className="w-6 h-6 rounded-full object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <UserIcon className="w-4 h-4 text-[#D4AF37]" />
+                      )}
+                      <div>
+                        <span className="text-white/90 text-xs font-medium block">{user.displayName || user.email}</span>
+                        {isAdmin && <span className="text-[9px] text-[#D4AF37] font-bold uppercase">Panel Admin →</span>}
+                      </div>
+                    </button>
+                    <button
+                      onClick={onSignOut}
+                      className="text-rose-400 text-xs uppercase tracking-wider font-semibold"
+                    >
+                      Salir
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={async () => {
+                      onNavigate('admin');
+                      setMobileMenuOpen(false);
+                      if (onSignIn) {
+                        try {
+                          await onSignIn();
+                        } catch (err) {
+                          console.log('Mobile sign-in processed', err);
+                        }
+                      }
+                    }}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3.5 border border-[#D4AF37]/40 bg-white/5 text-white hover:text-[#D4AF37] text-xs uppercase tracking-wider font-semibold transition-all"
+                  >
+                    <LogIn className="w-4 h-4 text-[#D4AF37]" />
+                    <span>Ingresar</span>
+                  </button>
+                )}
+              </div>
+
+              <div className="pt-4 border-t border-white/10 flex flex-col gap-2">
+                <a
+                  href="https://wa.me/5491140008888?text=Hola%20Black%20Swan,%20quiero%20consultar%20por%20un%20auto"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-xs uppercase tracking-widest font-bold bg-emerald-600/90 text-white hover:bg-emerald-500 transition-all"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  <span>Consultar por WhatsApp</span>
+                </a>
+              </div>
+            </>
+          )}
         </div>
       )}
     </header>

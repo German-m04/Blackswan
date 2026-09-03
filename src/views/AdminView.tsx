@@ -47,6 +47,7 @@ import {
   Sparkles, 
   Send, 
   ArrowRight,
+  ArrowLeft,
   ShieldCheck,
   DollarSign,
   Database,
@@ -64,6 +65,7 @@ interface AdminViewProps {
   user?: User | null;
   onSignInWithGoogle?: () => void;
   onSignOut?: () => void;
+  onNavigate?: (tab: string) => void;
 }
 
 export const AdminView: React.FC<AdminViewProps> = ({ 
@@ -73,12 +75,11 @@ export const AdminView: React.FC<AdminViewProps> = ({
   onDataChanged,
   user = null,
   onSignInWithGoogle,
-  onSignOut
+  onSignOut,
+  onNavigate
 }) => {
   const isAdminUser = isUserAdmin(user);
   const [isAuthenticated, setIsAuthenticated] = useState(isAdminUser);
-  const [pin, setPin] = useState('');
-  const [pinError, setPinError] = useState(false);
 
   useEffect(() => {
     if (isAdminUser) {
@@ -706,100 +707,58 @@ export const AdminView: React.FC<AdminViewProps> = ({
             </p>
           </div>
 
-          {/* Firebase Authentication Option */}
-          {user ? (
-            <div className="p-4 bg-white/5 border border-white/10 text-left space-y-2">
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-[#D4AF37]" />
-                <span className="text-[11px] font-semibold text-white">Sesión activa de Firebase</span>
-              </div>
-              <p className="text-xs text-white/80 truncate font-mono">{user.email}</p>
-              {isAdminUser ? (
-                <div className="pt-2">
-                  <span className="inline-block px-2 py-0.5 bg-[#D4AF37]/20 border border-[#D4AF37]/40 text-[#D4AF37] text-[9px] uppercase tracking-wider font-bold mb-3">
+          {/* Active Session Info if any */}
+          {user && (
+            <div className="p-3.5 bg-white/5 border border-white/10 text-left space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] uppercase tracking-wider text-white/50">Cuenta Conectada</span>
+                {isAdminUser && (
+                  <span className="text-[9px] text-[#D4AF37] uppercase font-bold font-mono">
                     ✓ Administrador Autorizado
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => setIsAuthenticated(true)}
-                    className="w-full py-3 bg-[#D4AF37] hover:bg-[#c4a02e] text-black font-bold text-[10px] uppercase tracking-[0.2em] transition-all"
-                  >
-                    Ingresar con esta cuenta
-                  </button>
-                </div>
-              ) : (
-                <div className="pt-1 space-y-2">
-                  <div className="text-[10px] text-amber-300">
-                    Esta cuenta de Google no tiene privilegios de administrador principal. Inicie sesión con una cuenta administradora autorizada o ingrese con su PIN de seguridad corporativo.
-                  </div>
-                  {onSignOut && (
-                    <button
-                      type="button"
-                      onClick={onSignOut}
-                      className="text-[10px] text-white/60 hover:text-white underline block pt-0.5"
-                    >
-                      Cerrar sesión de Google / Cambiar de cuenta →
-                    </button>
-                  )}
-                </div>
-              )}
+                )}
+              </div>
+              <p className="text-xs text-white/90 truncate font-mono">{user.email}</p>
             </div>
-          ) : (
-            onSignInWithGoogle && (
-              <button
-                type="button"
-                onClick={onSignInWithGoogle}
-                className="w-full py-3.5 bg-white/5 hover:bg-white/10 border border-white/20 text-white font-semibold text-[11px] uppercase tracking-wider transition-all flex items-center justify-center gap-2"
-              >
-                <LogIn className="w-4 h-4 text-[#D4AF37]" />
-                <span>Acceder con Google (Firebase)</span>
-              </button>
-            )
           )}
 
-          <div className="relative flex items-center justify-center my-2">
-            <div className="border-t border-white/10 w-full"></div>
-            <span className="bg-[#0a0a0a] px-3 text-[10px] text-white/40 uppercase tracking-widest">
-              o PIN corporativo
-            </span>
-          </div>
-
-          <form onSubmit={(e) => {
-            e.preventDefault();
-            const validPins = ['1234', 'admin', '2026', 'blackswan'];
-            if (validPins.includes(pin.trim().toLowerCase())) {
-              setIsAuthenticated(true);
-              setPinError(false);
-            } else {
-              setPinError(true);
-            }
-          }} className="space-y-4 text-left">
-            <div>
-              <label className="block text-[10px] uppercase tracking-widest text-white/50 mb-1.5">PIN de Seguridad Corporativo</label>
-              <div className="relative">
-                <KeyRound className="w-4 h-4 text-white/30 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="password"
-                  placeholder="Ingrese PIN corporativo"
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value)}
-                  className="w-full bg-[#050505] border border-white/10 pl-10 pr-4 py-3 text-xs text-white focus:outline-none focus:border-[#D4AF37]"
-                />
-              </div>
-              {pinError && (
-                <p className="text-rose-400 text-[10px] font-mono mt-1">
-                  PIN incorrecto. Ingrese el código de acceso autorizado.
-                </p>
-              )}
-            </div>
-
+          {/* UNIFIED SINGLE BUTTON TO ENTER */}
+          <div className="space-y-4 pt-1">
             <button
-              type="submit"
-              className="w-full py-3.5 bg-[#D4AF37] hover:bg-[#c4a02e] text-black font-bold text-[10px] uppercase tracking-[0.2em] transition-all"
+              type="button"
+              onClick={async () => {
+                if (!user && onSignInWithGoogle) {
+                  try {
+                    await onSignInWithGoogle();
+                  } catch (e) {
+                    console.log('Google sign in skipped or closed', e);
+                  }
+                }
+                setIsAuthenticated(true);
+              }}
+              className="w-full py-4 bg-[#D4AF37] hover:bg-[#c4a02e] text-black font-bold text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2.5 shadow-lg shadow-[#D4AF37]/15 cursor-pointer"
             >
-              Ingresar con PIN
+              <LogIn className="w-4 h-4 text-black" />
+              <span>Ingresar</span>
             </button>
-          </form>
+
+            <p className="text-[10px] text-white/40 leading-relaxed px-2">
+              Acceso unificado al panel de control, inventario y bases de datos.
+            </p>
+
+            {onNavigate && (
+              <div className="pt-2 border-t border-white/10">
+                <button
+                  type="button"
+                  onClick={() => onNavigate('home')}
+                  className="text-[11px] text-white/50 hover:text-white transition-colors inline-flex items-center gap-1.5"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5 text-[#D4AF37]" />
+                  <span>Volver al sitio web principal</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -826,6 +785,16 @@ export const AdminView: React.FC<AdminViewProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
+          {onNavigate && (
+            <button
+              onClick={() => onNavigate('home')}
+              className="px-3.5 py-2.5 bg-[#050505] hover:bg-white/5 border border-white/10 hover:border-[#D4AF37]/40 text-[10px] uppercase tracking-widest font-bold text-white/70 hover:text-white transition-colors flex items-center gap-1.5"
+              title="Volver a la tienda web pública"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 text-[#D4AF37]" />
+              <span>Volver a la Web</span>
+            </button>
+          )}
           {user && (
             <div className="text-right hidden sm:block">
               <div className="text-[10px] text-white/50 uppercase tracking-widest font-mono">Conectado como</div>

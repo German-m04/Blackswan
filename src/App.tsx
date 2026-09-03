@@ -215,6 +215,7 @@ export default function App() {
             user={currentUser}
             onSignInWithGoogle={handleSignIn}
             onSignOut={handleSignOut}
+            onNavigate={handleNavigate}
           />
         )}
       </main>
