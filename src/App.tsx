@@ -43,45 +43,40 @@ export default function App() {
       setCurrentUser(user);
     });
 
-    // 3. Ensure Firestore initial seed if collection is empty
-    firebaseSync.ensureSeedData().catch((err) => {
-      console.warn('Firebase initial seed check:', err);
-    });
-
-    // 4. Real-time Firestore sync for cars
+    // 3. Real-time Firestore sync for cars
     const unsubscribeCars = firebaseSync.subscribeCars((firestoreCars) => {
-      if (firestoreCars && firestoreCars.length > 0) {
+      if (Array.isArray(firestoreCars)) {
         setCars(firestoreCars);
         storage.setCarsFromFirebase(firestoreCars);
       }
     });
 
-    // 5. Real-time Firestore sync for reviews
+    // 4. Real-time Firestore sync for reviews
     const unsubscribeReviews = firebaseSync.subscribeReviews((firestoreReviews) => {
-      if (firestoreReviews && firestoreReviews.length > 0) {
+      if (Array.isArray(firestoreReviews)) {
         setReviews(firestoreReviews);
         storage.setReviewsFromFirebase(firestoreReviews);
       }
     });
 
-    // 6. Real-time Firestore sync for inquiries
+    // 5. Real-time Firestore sync for inquiries
     const unsubscribeInquiries = firebaseSync.subscribeInquiries((firestoreInquiries) => {
-      if (firestoreInquiries) {
+      if (Array.isArray(firestoreInquiries)) {
         setInquiries(firestoreInquiries);
         storage.setInquiriesFromFirebase(firestoreInquiries);
       }
     });
 
-    // 7. Real-time Firestore sync for customers
+    // 6. Real-time Firestore sync for customers
     const unsubscribeCustomers = firebaseSync.subscribeCustomers((firestoreCustomers) => {
-      if (firestoreCustomers && firestoreCustomers.length > 0) {
+      if (Array.isArray(firestoreCustomers)) {
         storage.setCustomersFromFirebase(firestoreCustomers);
       }
     });
 
-    // 8. Real-time Firestore sync for quotations
+    // 7. Real-time Firestore sync for quotations
     const unsubscribeQuotations = firebaseSync.subscribeQuotations((firestoreQuotations) => {
-      if (firestoreQuotations && firestoreQuotations.length > 0) {
+      if (Array.isArray(firestoreQuotations)) {
         storage.setQuotationsFromFirebase(firestoreQuotations);
       }
     });

@@ -49,6 +49,8 @@ import {
   ArrowRight,
   ArrowLeft,
   ShieldCheck,
+  ShieldAlert,
+  LogOut,
   DollarSign,
   Database,
   LogIn,
@@ -161,6 +163,71 @@ export const AdminView: React.FC<AdminViewProps> = ({
     } finally {
       setIsSyncingDb(false);
       onDataChanged();
+    }
+  };
+
+  const handleClearAllForProduction = async () => {
+    const confirm1 = window.confirm(
+      '⚠️ ATENCIÓN: VACIAR BASE DE DATOS PARA PRODUCCIÓN\n\n' +
+      '¿Deseas eliminar permanentemente TODOS los datos demo (autos, clientes, cotizaciones y reseñas) de Firebase Firestore y del navegador?\n\n' +
+      'Esta acción dejará la base de datos 100% limpia y vacía, lista para cargar los autos, clientes y cotizaciones reales de Black Swan Motors sin que vuelvan a aparecer datos de prueba.'
+    );
+    if (!confirm1) return;
+
+    const confirm2 = window.prompt(
+      'Para confirmar de forma segura, escribe la palabra "PRODUCCION" en mayúsculas:'
+    );
+    if (confirm2 !== 'PRODUCCION') {
+      alert('Operación cancelada. No se modificó ningún dato.');
+      return;
+    }
+
+    setIsSyncingDb(true);
+    setSyncResult(null);
+    try {
+      const res = await storage.clearAllForProduction();
+      refreshLocalData();
+      setSyncResult({
+        success: true,
+        message: '¡Base de datos lista para producción!',
+        details: `Se eliminaron ${res.deletedCount} registros de prueba. Tu inventario, clientes y cotizaciones ahora están 100% en blanco para operar en producción.`
+      });
+    } catch (err: any) {
+      setSyncResult({
+        success: false,
+        message: 'Error al vaciar base de datos',
+        details: err?.message || String(err)
+      });
+    } finally {
+      setIsSyncingDb(false);
+    }
+  };
+
+  const handleSeedDemoData = async () => {
+    const ok = window.confirm(
+      '¿Deseas restaurar los datos de prueba en la base de datos? (Utilizar únicamente para demostraciones o testing)'
+    );
+    if (!ok) return;
+
+    setIsSyncingDb(true);
+    setSyncResult(null);
+    try {
+      await firebaseSync.seedDemoData();
+      storage.resetToDefault();
+      refreshLocalData();
+      setSyncResult({
+        success: true,
+        message: 'Datos demo de prueba restaurados',
+        details: 'Se han cargado las unidades y registros de muestra para pruebas.'
+      });
+    } catch (err: any) {
+      setSyncResult({
+        success: false,
+        message: 'Error al restaurar demo',
+        details: err?.message || String(err)
+      });
+    } finally {
+      setIsSyncingDb(false);
     }
   };
 
@@ -690,9 +757,10 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const pendingInquiriesCount = inquiries.filter((i) => i.status === 'Pendiente').length;
 
   // ------------------------------------
-  // LOGIN FORM
+  // AUTHENTICATION & STRICT ACCESS CONTROL
   // ------------------------------------
-  if (!isAuthenticated) {
+  // Case 1: Visitor not authenticated with Google -> Request Admin Sign In
+  if (!user) {
     return (
       <div className="min-h-[70vh] flex items-center justify-center p-4">
         <div className="w-full max-w-md bg-[#0a0a0a] border border-white/10 p-8 space-y-6 text-center shadow-2xl">
@@ -707,44 +775,33 @@ export const AdminView: React.FC<AdminViewProps> = ({
             </p>
           </div>
 
-          {/* Active Session Info if any */}
-          {user && (
-            <div className="p-3.5 bg-white/5 border border-white/10 text-left space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] uppercase tracking-wider text-white/50">Cuenta Conectada</span>
-                {isAdminUser && (
-                  <span className="text-[9px] text-[#D4AF37] uppercase font-bold font-mono">
-                    ✓ Administrador Autorizado
-                  </span>
-                )}
-              </div>
-              <p className="text-xs text-white/90 truncate font-mono">{user.email}</p>
+          <div className="p-4 bg-white/5 border border-white/10 text-left space-y-2">
+            <div className="flex items-center gap-2 text-[#D4AF37] text-xs font-semibold uppercase tracking-wider">
+              <ShieldAlert className="w-4 h-4" />
+              <span>Acceso Exclusivo para Administradores</span>
             </div>
-          )}
+            <p className="text-xs text-white/60 leading-relaxed font-light">
+              Para gestionar el inventario, clientes y cotizaciones, debes iniciar sesión con una cuenta de Google autorizada por Black Swan Motors.
+            </p>
+          </div>
 
-          {/* UNIFIED SINGLE BUTTON TO ENTER */}
           <div className="space-y-4 pt-1">
-            <button
-              type="button"
-              onClick={async () => {
-                if (!user && onSignInWithGoogle) {
+            {onSignInWithGoogle && (
+              <button
+                type="button"
+                onClick={async () => {
                   try {
                     await onSignInWithGoogle();
                   } catch (e) {
-                    console.log('Google sign in skipped or closed', e);
+                    console.log('Google sign in cancelled or failed', e);
                   }
-                }
-                setIsAuthenticated(true);
-              }}
-              className="w-full py-4 bg-[#D4AF37] hover:bg-[#c4a02e] text-black font-bold text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2.5 shadow-lg shadow-[#D4AF37]/15 cursor-pointer"
-            >
-              <LogIn className="w-4 h-4 text-black" />
-              <span>Ingresar</span>
-            </button>
-
-            <p className="text-[10px] text-white/40 leading-relaxed px-2">
-              Acceso unificado al panel de control, inventario y bases de datos.
-            </p>
+                }}
+                className="w-full py-4 bg-[#D4AF37] hover:bg-[#c4a02e] text-black font-bold text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2.5 shadow-lg shadow-[#D4AF37]/15 cursor-pointer"
+              >
+                <LogIn className="w-4 h-4 text-black" />
+                <span>Iniciar Sesión con Google</span>
+              </button>
+            )}
 
             {onNavigate && (
               <div className="pt-2 border-t border-white/10">
@@ -757,6 +814,60 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   <span>Volver al sitio web principal</span>
                 </button>
               </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Case 2: Signed in user is NOT an authorized administrator -> ACCESS DENIED
+  if (!isAdminUser) {
+    return (
+      <div className="min-h-[70vh] flex items-center justify-center p-4">
+        <div className="w-full max-w-md bg-[#0a0a0a] border border-red-500/30 p-8 space-y-6 text-center shadow-2xl relative overflow-hidden">
+          <div className="w-16 h-16 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-400 mx-auto">
+            <ShieldAlert className="w-8 h-8" />
+          </div>
+
+          <div className="space-y-1.5">
+            <h1 className="text-xl font-serif text-white font-light">Acceso Denegado</h1>
+            <p className="text-xs text-red-400 font-mono">
+              Cuenta no autorizada para el panel de administración
+            </p>
+          </div>
+
+          <div className="p-4 bg-white/5 border border-white/10 text-left space-y-2">
+            <span className="text-[10px] uppercase tracking-wider text-white/40 block">Cuenta conectada:</span>
+            <p className="text-xs text-white/90 font-mono break-all bg-black/40 p-2 border border-white/10">
+              {user.email}
+            </p>
+            <p className="text-[11px] text-white/50 leading-relaxed pt-1">
+              Esta cuenta no tiene privilegios de administrador en Black Swan Motors. El acceso al inventario, CRM y datos financieros está estrictamente reservado para cuentas autorizadas.
+            </p>
+          </div>
+
+          <div className="space-y-3 pt-2">
+            {onSignOut && (
+              <button
+                type="button"
+                onClick={onSignOut}
+                className="w-full py-3 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2"
+              >
+                <LogOut className="w-3.5 h-3.5 text-red-400" />
+                <span>Cerrar sesión / Cambiar de cuenta</span>
+              </button>
+            )}
+
+            {onNavigate && (
+              <button
+                type="button"
+                onClick={() => onNavigate('home')}
+                className="w-full py-3 bg-[#D4AF37] hover:bg-[#c4a02e] text-black font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2"
+              >
+                <ArrowLeft className="w-3.5 h-3.5 text-black" />
+                <span>Volver al sitio web</span>
+              </button>
             )}
           </div>
         </div>
@@ -893,37 +1004,53 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
             {/* Auth status & actions */}
             <div className="flex flex-wrap items-center gap-3">
-              {user ? (
+              {user && (
                 <div className="inline-flex items-center gap-2 px-3 py-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs">
                   <ShieldCheck className="w-4 h-4 text-emerald-400" />
                   <span className="font-mono text-[11px]">{user.email} (Admin Autorizado)</span>
                 </div>
-              ) : onSignInWithGoogle ? (
-                <button
-                  onClick={onSignInWithGoogle}
-                  className="px-3.5 py-2 bg-white/10 hover:bg-white/15 border border-white/20 text-xs text-white uppercase tracking-wider font-semibold transition-all flex items-center gap-2"
-                >
-                  <LogIn className="w-3.5 h-3.5 text-[#D4AF37]" />
-                  <span>Acceder con Google Admin</span>
-                </button>
-              ) : null}
+              )}
+
+              {/* Botón de Vaciar para Producción */}
+              <button
+                type="button"
+                onClick={handleClearAllForProduction}
+                disabled={isSyncingDb}
+                className="px-4 py-2.5 bg-red-950/40 hover:bg-red-900/60 border border-red-500/40 hover:border-red-500 text-red-300 hover:text-white disabled:opacity-50 text-xs uppercase tracking-wider font-semibold transition-all flex items-center gap-2 shadow-sm"
+                title="Elimina todos los datos demo de prueba y deja la base de datos vacía y lista para cargar autos, clientes y cotizaciones reales"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                <span>Vaciar Todo para Producción</span>
+              </button>
 
               <button
+                type="button"
                 onClick={handleSyncAllToDatabase}
                 disabled={isSyncingDb}
-                className="px-5 py-2.5 bg-[#D4AF37] hover:bg-[#c4a02e] disabled:opacity-50 text-black text-xs uppercase tracking-widest font-bold transition-all shadow-lg shadow-[#D4AF37]/10 flex items-center gap-2"
+                className="px-4 py-2.5 bg-[#D4AF37] hover:bg-[#c4a02e] disabled:opacity-50 text-black text-xs uppercase tracking-widest font-bold transition-all shadow-lg shadow-[#D4AF37]/10 flex items-center gap-2"
               >
                 {isSyncingDb ? (
                   <>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>Sincronizando Todo...</span>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Procesando...</span>
                   </>
                 ) : (
                   <>
-                    <CloudUpload className="w-4 h-4" />
-                    <span>Sincronizar Todo a Firestore</span>
+                    <CloudUpload className="w-3.5 h-3.5" />
+                    <span>Sincronizar a Firestore</span>
                   </>
                 )}
+              </button>
+
+              {/* Optional Demo Restore Button */}
+              <button
+                type="button"
+                onClick={handleSeedDemoData}
+                disabled={isSyncingDb}
+                className="px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white/50 hover:text-white text-[10px] uppercase tracking-wider transition-colors"
+                title="Carga datos demo de ejemplo para pruebas"
+              >
+                Cargar Demo (Test)
               </button>
             </div>
           </div>
@@ -1213,6 +1340,35 @@ export const AdminView: React.FC<AdminViewProps> = ({
                       </td>
                     </tr>
                   ))}
+                  {filteredCars.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="p-12 text-center">
+                        <div className="max-w-md mx-auto space-y-3">
+                          <CarFront className="w-10 h-10 text-white/20 mx-auto" />
+                          <p className="text-sm text-white font-serif">
+                            {cars.length === 0 
+                              ? 'Base de datos de vehículos lista para producción' 
+                              : 'No se encontraron vehículos con los filtros aplicados'}
+                          </p>
+                          <p className="text-xs text-white/50 leading-relaxed">
+                            {cars.length === 0
+                              ? 'No hay unidades de prueba cargadas. Haz clic en "Cargar Vehículo" para dar de alta tu primera unidad oficial con ficha técnica, peritaje e imágenes.'
+                              : 'Prueba modificando el término de búsqueda.'}
+                          </p>
+                          {cars.length === 0 && (
+                            <button
+                              type="button"
+                              onClick={openAddCarModal}
+                              className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#D4AF37] text-black font-bold text-xs uppercase tracking-wider hover:bg-[#c4a02e] transition-colors mt-2"
+                            >
+                              <Plus className="w-4 h-4" />
+                              <span>Cargar Primer Vehículo</span>
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -1368,6 +1524,35 @@ export const AdminView: React.FC<AdminViewProps> = ({
                       </td>
                     </tr>
                   ))}
+                  {filteredCustomers.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="p-12 text-center">
+                        <div className="max-w-md mx-auto space-y-3">
+                          <Users className="w-10 h-10 text-white/20 mx-auto" />
+                          <p className="text-sm text-white font-serif">
+                            {customers.length === 0 
+                              ? 'Base de clientes CRM vacía para producción' 
+                              : 'No se encontraron clientes con los filtros aplicados'}
+                          </p>
+                          <p className="text-xs text-white/50 leading-relaxed">
+                            {customers.length === 0
+                              ? 'Aún no hay clientes registrados. Los clientes se crearán automáticamente al cotizar o puedes registrar un nuevo cliente manualmente.'
+                              : 'Prueba modificando los términos de búsqueda.'}
+                          </p>
+                          {customers.length === 0 && (
+                            <button
+                              type="button"
+                              onClick={openAddCustModal}
+                              className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#D4AF37] text-black font-bold text-xs uppercase tracking-wider hover:bg-[#c4a02e] transition-colors mt-2"
+                            >
+                              <Plus className="w-4 h-4" />
+                              <span>Registrar Primer Cliente</span>
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -1520,6 +1705,35 @@ export const AdminView: React.FC<AdminViewProps> = ({
                       </td>
                     </tr>
                   ))}
+                  {filteredQuotations.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="p-12 text-center">
+                        <div className="max-w-md mx-auto space-y-3">
+                          <FileText className="w-10 h-10 text-white/20 mx-auto" />
+                          <p className="text-sm text-white font-serif">
+                            {quotations.length === 0 
+                              ? 'Base de cotizaciones vacía para producción' 
+                              : 'No se encontraron cotizaciones con los filtros aplicados'}
+                          </p>
+                          <p className="text-xs text-white/50 leading-relaxed">
+                            {quotations.length === 0
+                              ? 'Aún no hay cotizaciones emitidas. Puedes crear propuestas comerciales con cálculos de anticipo, cuotas fijas y toma de permutas.'
+                              : 'Prueba modificando los términos de búsqueda.'}
+                          </p>
+                          {quotations.length === 0 && (
+                            <button
+                              type="button"
+                              onClick={() => openAddQuotModal()}
+                              className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#D4AF37] text-black font-bold text-xs uppercase tracking-wider hover:bg-[#c4a02e] transition-colors mt-2"
+                            >
+                              <Plus className="w-4 h-4" />
+                              <span>Crear Primera Cotización</span>
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -1617,6 +1831,21 @@ export const AdminView: React.FC<AdminViewProps> = ({
                       </td>
                     </tr>
                   ))}
+                  {inquiries.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="p-12 text-center">
+                        <div className="max-w-md mx-auto space-y-3">
+                          <MessageSquare className="w-10 h-10 text-white/20 mx-auto" />
+                          <p className="text-sm text-white font-serif">
+                            Bandeja de consultas vacía
+                          </p>
+                          <p className="text-xs text-white/50 leading-relaxed">
+                            No hay consultas pendientes en el sistema. Los mensajes enviados por los clientes desde la web aparecerán aquí en tiempo real.
+                          </p>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>

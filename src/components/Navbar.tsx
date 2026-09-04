@@ -139,19 +139,25 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span className="text-[10px] text-white/90 font-medium leading-none truncate max-w-[120px]">
                   {user.displayName || user.email?.split('@')[0]}
                 </span>
-                {isAdmin && (
+                {isAdmin ? (
                   <span className="text-[8px] text-[#D4AF37] uppercase font-bold tracking-wider">
                     Admin
                   </span>
+                ) : (
+                  <span className="text-[8px] text-white/40 uppercase tracking-wider">
+                    Usuario
+                  </span>
                 )}
               </div>
-              <button
-                onClick={() => onNavigate('admin')}
-                className="p-1 text-[#D4AF37] hover:text-white transition-colors ml-1"
-                title="Panel de Administración"
-              >
-                <ShieldCheck className="w-4 h-4" />
-              </button>
+              {isAdmin && (
+                <button
+                  onClick={() => onNavigate('admin')}
+                  className="p-1 text-[#D4AF37] hover:text-white transition-colors ml-1"
+                  title="Panel de Administración"
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                </button>
+              )}
               <button
                 onClick={onSignOut}
                 className="p-1 text-white/40 hover:text-rose-400 transition-colors ml-0.5"
@@ -284,13 +290,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <div className="pt-2">
                 {user ? (
                   <div className="flex items-center justify-between p-3 bg-white/5 border border-white/10 text-xs">
-                    <button
-                      onClick={() => {
-                        onNavigate('admin');
-                        setMobileMenuOpen(false);
-                      }}
-                      className="flex items-center gap-2 text-left"
-                    >
+                    <div className="flex items-center gap-2 text-left">
                       {user.photoURL ? (
                         <img 
                           src={user.photoURL} 
@@ -302,10 +302,22 @@ export const Navbar: React.FC<NavbarProps> = ({
                         <UserIcon className="w-4 h-4 text-[#D4AF37]" />
                       )}
                       <div>
-                        <span className="text-white/90 text-xs font-medium block">{user.displayName || user.email}</span>
-                        {isAdmin && <span className="text-[9px] text-[#D4AF37] font-bold uppercase">Panel Admin →</span>}
+                        <span className="text-white/90 text-xs font-medium block max-w-[170px] truncate">{user.displayName || user.email}</span>
+                        {isAdmin ? (
+                          <button
+                            onClick={() => {
+                              onNavigate('admin');
+                              setMobileMenuOpen(false);
+                            }}
+                            className="text-[9px] text-[#D4AF37] font-bold uppercase hover:underline block text-left"
+                          >
+                            Panel Admin →
+                          </button>
+                        ) : (
+                          <span className="text-[9px] text-white/40 font-mono">Usuario Conectado</span>
+                        )}
                       </div>
-                    </button>
+                    </div>
                     <button
                       onClick={onSignOut}
                       className="text-rose-400 text-xs uppercase tracking-wider font-semibold"

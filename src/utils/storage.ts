@@ -20,33 +20,30 @@ class StorageService {
     this.listeners.forEach((cb) => cb());
   }
 
+  public isProductionReady(): boolean {
+    return localStorage.getItem('blackswan_production_ready') === 'true';
+  }
+
   // --- CARS ---
   public getCars(): Car[] {
     try {
       const data = localStorage.getItem(CARS_KEY);
-      if (!data) {
-        localStorage.setItem(CARS_KEY, JSON.stringify(INITIAL_CARS));
-        return INITIAL_CARS;
+      if (data !== null) {
+        return JSON.parse(data);
       }
-      const parsed: Car[] = JSON.parse(data);
-      // Ensure default reference vehicles (like Ford Cargo) are included if missing
-      const hasFordCargo = parsed.some((c) => c.id === 'car-ford-cargo' || c.title === 'Ford Cargo 1722');
-      if (!hasFordCargo) {
-        const merged = [INITIAL_CARS[0], ...parsed];
-        localStorage.setItem(CARS_KEY, JSON.stringify(merged));
-        return merged;
+      if (this.isProductionReady()) {
+        return [];
       }
-      return parsed;
-    } catch {
+      localStorage.setItem(CARS_KEY, JSON.stringify(INITIAL_CARS));
       return INITIAL_CARS;
+    } catch {
+      return [];
     }
   }
 
   public setCarsFromFirebase(cars: Car[]) {
-    if (cars && cars.length > 0) {
-      localStorage.setItem(CARS_KEY, JSON.stringify(cars));
-      this.notify();
-    }
+    localStorage.setItem(CARS_KEY, JSON.stringify(cars || []));
+    this.notify();
   }
 
   public saveCars(cars: Car[]) {
@@ -87,21 +84,22 @@ class StorageService {
   public getReviews(): Review[] {
     try {
       const data = localStorage.getItem(REVIEWS_KEY);
-      if (!data) {
-        localStorage.setItem(REVIEWS_KEY, JSON.stringify(INITIAL_REVIEWS));
-        return INITIAL_REVIEWS;
+      if (data !== null) {
+        return JSON.parse(data);
       }
-      return JSON.parse(data);
-    } catch {
+      if (this.isProductionReady()) {
+        return [];
+      }
+      localStorage.setItem(REVIEWS_KEY, JSON.stringify(INITIAL_REVIEWS));
       return INITIAL_REVIEWS;
+    } catch {
+      return [];
     }
   }
 
   public setReviewsFromFirebase(reviews: Review[]) {
-    if (reviews && reviews.length > 0) {
-      localStorage.setItem(REVIEWS_KEY, JSON.stringify(reviews));
-      this.notify();
-    }
+    localStorage.setItem(REVIEWS_KEY, JSON.stringify(reviews || []));
+    this.notify();
   }
 
   public addReview(review: Omit<Review, 'id' | 'date' | 'approved'>): Review {
@@ -147,21 +145,22 @@ class StorageService {
   public getInquiries(): Inquiry[] {
     try {
       const data = localStorage.getItem(INQUIRIES_KEY);
-      if (!data) {
-        localStorage.setItem(INQUIRIES_KEY, JSON.stringify(INITIAL_INQUIRIES));
-        return INITIAL_INQUIRIES;
+      if (data !== null) {
+        return JSON.parse(data);
       }
-      return JSON.parse(data);
-    } catch {
+      if (this.isProductionReady()) {
+        return [];
+      }
+      localStorage.setItem(INQUIRIES_KEY, JSON.stringify(INITIAL_INQUIRIES));
       return INITIAL_INQUIRIES;
+    } catch {
+      return [];
     }
   }
 
   public setInquiriesFromFirebase(inquiries: Inquiry[]) {
-    if (inquiries && inquiries.length > 0) {
-      localStorage.setItem(INQUIRIES_KEY, JSON.stringify(inquiries));
-      this.notify();
-    }
+    localStorage.setItem(INQUIRIES_KEY, JSON.stringify(inquiries || []));
+    this.notify();
   }
 
   public addInquiry(inquiry: Omit<Inquiry, 'id' | 'createdAt' | 'status'>): Inquiry {
@@ -204,21 +203,22 @@ class StorageService {
   public getCustomers(): Customer[] {
     try {
       const data = localStorage.getItem(CUSTOMERS_KEY);
-      if (!data) {
-        localStorage.setItem(CUSTOMERS_KEY, JSON.stringify(INITIAL_CUSTOMERS));
-        return INITIAL_CUSTOMERS;
+      if (data !== null) {
+        return JSON.parse(data);
       }
-      return JSON.parse(data);
-    } catch {
+      if (this.isProductionReady()) {
+        return [];
+      }
+      localStorage.setItem(CUSTOMERS_KEY, JSON.stringify(INITIAL_CUSTOMERS));
       return INITIAL_CUSTOMERS;
+    } catch {
+      return [];
     }
   }
 
   public setCustomersFromFirebase(customers: Customer[]) {
-    if (customers && customers.length > 0) {
-      localStorage.setItem(CUSTOMERS_KEY, JSON.stringify(customers));
-      this.notify();
-    }
+    localStorage.setItem(CUSTOMERS_KEY, JSON.stringify(customers || []));
+    this.notify();
   }
 
   public saveCustomers(customers: Customer[]) {
@@ -259,21 +259,22 @@ class StorageService {
   public getQuotations(): Quotation[] {
     try {
       const data = localStorage.getItem(QUOTATIONS_KEY);
-      if (!data) {
-        localStorage.setItem(QUOTATIONS_KEY, JSON.stringify(INITIAL_QUOTATIONS));
-        return INITIAL_QUOTATIONS;
+      if (data !== null) {
+        return JSON.parse(data);
       }
-      return JSON.parse(data);
-    } catch {
+      if (this.isProductionReady()) {
+        return [];
+      }
+      localStorage.setItem(QUOTATIONS_KEY, JSON.stringify(INITIAL_QUOTATIONS));
       return INITIAL_QUOTATIONS;
+    } catch {
+      return [];
     }
   }
 
   public setQuotationsFromFirebase(quotations: Quotation[]) {
-    if (quotations && quotations.length > 0) {
-      localStorage.setItem(QUOTATIONS_KEY, JSON.stringify(quotations));
-      this.notify();
-    }
+    localStorage.setItem(QUOTATIONS_KEY, JSON.stringify(quotations || []));
+    this.notify();
   }
 
   public saveQuotations(quotations: Quotation[]) {
@@ -332,12 +333,25 @@ class StorageService {
     });
   }
 
+  public async clearAllForProduction(): Promise<{ success: boolean; deletedCount: number; error?: string }> {
+    localStorage.setItem(CARS_KEY, JSON.stringify([]));
+    localStorage.setItem(REVIEWS_KEY, JSON.stringify([]));
+    localStorage.setItem(INQUIRIES_KEY, JSON.stringify([]));
+    localStorage.setItem(CUSTOMERS_KEY, JSON.stringify([]));
+    localStorage.setItem(QUOTATIONS_KEY, JSON.stringify([]));
+    localStorage.setItem('blackswan_production_ready', 'true');
+    this.notify();
+
+    return await firebaseSync.clearAllDataForProduction();
+  }
+
   public resetToDefault() {
     localStorage.setItem(CARS_KEY, JSON.stringify(INITIAL_CARS));
     localStorage.setItem(REVIEWS_KEY, JSON.stringify(INITIAL_REVIEWS));
     localStorage.setItem(INQUIRIES_KEY, JSON.stringify(INITIAL_INQUIRIES));
     localStorage.setItem(CUSTOMERS_KEY, JSON.stringify(INITIAL_CUSTOMERS));
     localStorage.setItem(QUOTATIONS_KEY, JSON.stringify(INITIAL_QUOTATIONS));
+    localStorage.removeItem('blackswan_production_ready');
     this.notify();
   }
 }

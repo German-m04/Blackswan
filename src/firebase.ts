@@ -116,11 +116,11 @@ export async function logOut(): Promise<void> {
 }
 
 export const ADMIN_EMAILS = [
-  'blackswan202614@gmail.com',
-  'GermanMountrichas@gmail.com'
+  'germanmountrichas@gmail.com',
+  'blackswan202614@gmail.com'
 ];
 
-export const ADMIN_EMAIL = 'blackswan202614@gmail.com';
+export const ADMIN_EMAIL = 'germanmountrichas@gmail.com';
 
 export function isUserAdmin(user: User | null): boolean {
   if (!user || !user.email) return false;
@@ -157,103 +157,71 @@ export function cleanDataForFirestore<T>(input: T): T {
   return input;
 }
 
-// 5. Firebase Firestore Data Service with fallback and seed
+// 5. Firebase Firestore Data Service
 class FirebaseSyncService {
-  private isInitialized = false;
-
-  // Initialize and ensure initial data exists in Firestore if collections are empty
-  public async ensureSeedData() {
-    if (this.isInitialized) return;
-    this.isInitialized = true;
-
+  /**
+   * Cleans all demo data across all collections and marks system ready for production.
+   * This ensures the database is completely empty and ready to receive real cars, clients, etc.
+   */
+  public async clearAllDataForProduction(): Promise<{ success: boolean; deletedCount: number; error?: string }> {
+    let deletedCount = 0;
     try {
-      // 1. Cars collection
-      try {
-        const carsSnapshot = await getDocs(collection(db, 'cars'));
-        const existingCarIds = new Set(carsSnapshot.docs.map((d) => d.id));
-        for (const car of INITIAL_CARS) {
-          if (!existingCarIds.has(car.id)) {
-            try {
-              await setDoc(doc(db, 'cars', car.id), cleanDataForFirestore(car));
-              console.log(`Seeded car to Firestore: ${car.title} (${car.id})`);
-            } catch (e) {
-              console.warn('Could not seed car:', car.id, e);
-            }
+      const collectionsToClear = ['cars', 'customers', 'quotations', 'inquiries', 'reviews'];
+      
+      for (const colName of collectionsToClear) {
+        try {
+          const snapshot = await getDocs(collection(db, colName));
+          for (const docSnapshot of snapshot.docs) {
+            await deleteDoc(doc(db, colName, docSnapshot.id));
+            deletedCount++;
           }
+        } catch (colErr) {
+          console.warn(`Error clearing collection ${colName}:`, colErr);
         }
-      } catch (e) {
-        console.warn('Cars seed check:', e);
       }
 
-      // 2. Reviews collection
+      // Mark system document as production ready
       try {
-        const revSnapshot = await getDocs(collection(db, 'reviews'));
-        const existingRevIds = new Set(revSnapshot.docs.map((d) => d.id));
-        for (const rev of INITIAL_REVIEWS) {
-          if (!existingRevIds.has(rev.id)) {
-            try {
-              await setDoc(doc(db, 'reviews', rev.id), cleanDataForFirestore(rev));
-            } catch (e) {
-              console.warn('Could not seed review:', rev.id, e);
-            }
-          }
-        }
-      } catch (e) {
-        console.warn('Reviews seed check:', e);
+        await setDoc(doc(db, 'system', 'config'), {
+          productionReady: true,
+          clearedAt: new Date().toISOString(),
+          clearedBy: auth.currentUser?.email || 'admin'
+        });
+      } catch (sysErr) {
+        console.warn('System config record warning:', sysErr);
       }
 
-      // 3. Inquiries collection
-      try {
-        const inqSnapshot = await getDocs(collection(db, 'inquiries'));
-        const existingInqIds = new Set(inqSnapshot.docs.map((d) => d.id));
-        for (const inq of INITIAL_INQUIRIES) {
-          if (!existingInqIds.has(inq.id)) {
-            try {
-              await setDoc(doc(db, 'inquiries', inq.id), cleanDataForFirestore(inq));
-            } catch (e) {
-              console.warn('Could not seed inquiry:', inq.id, e);
-            }
-          }
-        }
-      } catch (e) {
-        console.warn('Inquiries seed check:', e);
-      }
+      return { success: true, deletedCount };
+    } catch (err: any) {
+      console.error('Error clearing data for production:', err);
+      return { success: false, deletedCount, error: err?.message || String(err) };
+    }
+  }
 
-      // 4. Customers collection
-      try {
-        const custSnapshot = await getDocs(collection(db, 'customers'));
-        const existingCustIds = new Set(custSnapshot.docs.map((d) => d.id));
-        for (const cust of INITIAL_CUSTOMERS) {
-          if (!existingCustIds.has(cust.id)) {
-            try {
-              await setDoc(doc(db, 'customers', cust.id), cleanDataForFirestore(cust));
-            } catch (e) {
-              console.warn('Could not seed customer:', cust.id, e);
-            }
-          }
-        }
-      } catch (e) {
-        console.warn('Customers seed check:', e);
+  /**
+   * Optional manual helper to restore demo catalog if explicitly requested by admin.
+   * NEVER runs automatically.
+   */
+  public async seedDemoData(): Promise<void> {
+    try {
+      for (const car of INITIAL_CARS) {
+        await setDoc(doc(db, 'cars', car.id), cleanDataForFirestore(car));
       }
-
-      // 5. Quotations collection
-      try {
-        const quotSnapshot = await getDocs(collection(db, 'quotations'));
-        const existingQuotIds = new Set(quotSnapshot.docs.map((d) => d.id));
-        for (const quot of INITIAL_QUOTATIONS) {
-          if (!existingQuotIds.has(quot.id)) {
-            try {
-              await setDoc(doc(db, 'quotations', quot.id), cleanDataForFirestore(quot));
-            } catch (e) {
-              console.warn('Could not seed quotation:', quot.id, e);
-            }
-          }
-        }
-      } catch (e) {
-        console.warn('Quotations seed check:', e);
+      for (const rev of INITIAL_REVIEWS) {
+        await setDoc(doc(db, 'reviews', rev.id), cleanDataForFirestore(rev));
       }
-    } catch (err) {
-      console.warn('Initial database seed notice:', err);
+      for (const inq of INITIAL_INQUIRIES) {
+        await setDoc(doc(db, 'inquiries', inq.id), cleanDataForFirestore(inq));
+      }
+      for (const cust of INITIAL_CUSTOMERS) {
+        await setDoc(doc(db, 'customers', cust.id), cleanDataForFirestore(cust));
+      }
+      for (const quot of INITIAL_QUOTATIONS) {
+        await setDoc(doc(db, 'quotations', quot.id), cleanDataForFirestore(quot));
+      }
+      console.log('Demo catalog seeded manually.');
+    } catch (e) {
+      console.warn('Manual seed error:', e);
     }
   }
 
@@ -389,20 +357,14 @@ class FirebaseSyncService {
     return onSnapshot(
       collection(db, path),
       (snapshot) => {
-        if (!snapshot.empty) {
-          const carsList: Car[] = [];
-          snapshot.forEach((doc) => {
-            carsList.push(doc.data() as Car);
-          });
-          onUpdate(carsList);
-        } else {
-          // If Firestore is still empty, deliver INITIAL_CARS
-          onUpdate(INITIAL_CARS);
-        }
+        const carsList: Car[] = [];
+        snapshot.forEach((doc) => {
+          carsList.push(doc.data() as Car);
+        });
+        onUpdate(carsList);
       },
       (error) => {
         console.warn('Cars onSnapshot warning:', error.message);
-        // Fallback to local
       }
     );
   }
@@ -476,15 +438,11 @@ class FirebaseSyncService {
     return onSnapshot(
       collection(db, path),
       (snapshot) => {
-        if (!snapshot.empty) {
-          const revList: Review[] = [];
-          snapshot.forEach((doc) => {
-            revList.push(doc.data() as Review);
-          });
-          onUpdate(revList);
-        } else {
-          onUpdate(INITIAL_REVIEWS);
-        }
+        const revList: Review[] = [];
+        snapshot.forEach((doc) => {
+          revList.push(doc.data() as Review);
+        });
+        onUpdate(revList);
       },
       (error) => {
         console.warn('Reviews onSnapshot warning:', error.message);
