@@ -140,9 +140,26 @@
         "createdAt": { "type": "string", "maxLength": 50 }
       },
       "required": ["email", "role"]
+    },
+    "VehicleBrand": {
+      "title": "VehicleBrand",
+      "description": "Brand and vehicle model catalog for dropdown selections and inventory classification",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 100 },
+        "models": { "type": "array" },
+        "createdAt": { "type": "string", "maxLength": 50 },
+        "updatedAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "name", "models"]
     }
   },
   "firestore": {
+    "/brands/{brandId}": {
+      "schema": "VehicleBrand",
+      "description": "Automotive brand and model catalog"
+    },
     "/cars/{carId}": {
       "schema": "Car",
       "description": "Inventory of luxury pre-owned vehicles"

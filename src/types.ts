@@ -207,3 +207,11 @@ export interface FilterState {
   status: string;
   sortBy: 'featured' | 'price-asc' | 'price-desc' | 'year-desc' | 'km-asc';
 }
+
+export interface VehicleBrand {
+  id: string;
+  name: string;
+  models: string[];
+  createdAt?: string;
+  updatedAt?: string;
+}

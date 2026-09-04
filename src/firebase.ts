@@ -21,7 +21,8 @@ import {
   orderBy
 } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
-import { Car, Review, Inquiry, Customer, Quotation } from './types';
+import { Car, Review, Inquiry, Customer, Quotation, VehicleBrand } from './types';
+import { formatBrandId } from './data/initialBrands';
 import { 
   INITIAL_CARS, 
   INITIAL_REVIEWS, 
@@ -596,6 +597,98 @@ class FirebaseSyncService {
       handleFirestoreError(error, OperationType.DELETE, path);
     }
   }
+
+  // --- BRANDS & MODELS CATALOG ---
+  public subscribeBrands(onUpdate: (brands: VehicleBrand[]) => void) {
+    const path = 'brands';
+    return onSnapshot(
+      collection(db, path),
+      (snapshot) => {
+        const brandList: VehicleBrand[] = [];
+        snapshot.forEach((d) => {
+          brandList.push(d.data() as VehicleBrand);
+        });
+        onUpdate(brandList);
+      },
+      (error) => {
+        console.warn('Brands subscription notification:', error);
+      }
+    );
+  }
+
+  public async getBrands(): Promise<VehicleBrand[]> {
+    const path = 'brands';
+    try {
+      const snapshot = await getDocs(collection(db, path));
+      const list: VehicleBrand[] = [];
+      snapshot.forEach((d) => {
+        list.push(d.data() as VehicleBrand);
+      });
+      return list;
+    } catch (error) {
+      console.warn('Error fetching brands from Firestore:', error);
+      return [];
+    }
+  }
+
+  public async saveBrand(brand: VehicleBrand): Promise<void> {
+    const path = `brands/${brand.id}`;
+    try {
+      const payload: VehicleBrand = {
+        ...brand,
+        models: Array.from(new Set(brand.models.map(m => m.trim()))).filter(Boolean).sort(),
+        updatedAt: new Date().toISOString()
+      };
+      await setDoc(doc(db, 'brands', brand.id), cleanDataForFirestore(payload));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, path);
+    }
+  }
+
+  public async ensureBrandAndModel(brandName: string, modelName?: string): Promise<VehicleBrand | null> {
+    const trimmedBrand = brandName.trim();
+    if (!trimmedBrand) return null;
+    const brandId = formatBrandId(trimmedBrand);
+    if (!brandId) return null;
+
+    try {
+      // Check existing brands
+      const existingBrands = await this.getBrands();
+      const existing = existingBrands.find(
+        (b) => b.id === brandId || b.name.toLowerCase() === trimmedBrand.toLowerCase()
+      );
+
+      const cleanModel = modelName ? modelName.trim() : '';
+
+      if (existing) {
+        if (cleanModel && !existing.models.some((m) => m.toLowerCase() === cleanModel.toLowerCase())) {
+          const updatedModels = [...existing.models, cleanModel].sort();
+          const updatedBrand: VehicleBrand = {
+            ...existing,
+            models: updatedModels,
+            updatedAt: new Date().toISOString()
+          };
+          await this.saveBrand(updatedBrand);
+          return updatedBrand;
+        }
+        return existing;
+      } else {
+        const newBrand: VehicleBrand = {
+          id: brandId,
+          name: trimmedBrand,
+          models: cleanModel ? [cleanModel] : [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        await this.saveBrand(newBrand);
+        return newBrand;
+      }
+    } catch (err) {
+      console.warn('ensureBrandAndModel notice:', err);
+      return null;
+    }
+  }
 }
 
 export const firebaseSync = new FirebaseSyncService();
+

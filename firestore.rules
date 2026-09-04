@@ -92,6 +92,19 @@ service cloud.firestore {
              data.status in ['Borrador', 'Enviada', 'En Negociación', 'Aprobada', 'Rechazada', 'Vencida'];
     }
 
+    function isValidBrand(data) {
+      return data.id is string && data.id.size() <= 128 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.models is list && data.models.size() <= 500;
+    }
+
+    // Brands & Models Catalog
+    match /brands/{brandId} {
+      allow get, list: if true;
+      allow create, update: if isValidId(brandId) && isValidBrand(incoming());
+      allow delete: if true;
+    }
+
     // System Config & Production Metadata
     match /system/{docId} {
       allow get, list: if true;

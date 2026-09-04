@@ -1,5 +1,6 @@
-import { Car, Review, Inquiry, Customer, Quotation } from '../types';
+import { Car, Review, Inquiry, Customer, Quotation, VehicleBrand } from '../types';
 import { INITIAL_CARS, INITIAL_REVIEWS, INITIAL_INQUIRIES, INITIAL_CUSTOMERS, INITIAL_QUOTATIONS } from '../data/initialData';
+import { INITIAL_BRANDS, formatBrandId } from '../data/initialBrands';
 import { firebaseSync } from '../firebase';
 
 const CARS_KEY = 'blackswan_cars_v1';
@@ -7,6 +8,7 @@ const REVIEWS_KEY = 'blackswan_reviews_v1';
 const INQUIRIES_KEY = 'blackswan_inquiries_v1';
 const CUSTOMERS_KEY = 'blackswan_customers_v1';
 const QUOTATIONS_KEY = 'blackswan_quotations_v1';
+const BRANDS_KEY = 'blackswan_brands_v1';
 
 class StorageService {
   private listeners: Set<() => void> = new Set();
@@ -57,6 +59,7 @@ class StorageService {
     cars.unshift(created);
     this.saveCars(cars);
     firebaseSync.saveCar(created).catch((err) => console.warn('Firebase car write notice:', err));
+    this.ensureBrandAndModel(created.brand, created.model).catch((err) => console.warn('Auto-register brand notice:', err));
     return created;
   }
 
@@ -67,6 +70,7 @@ class StorageService {
       cars[index] = updatedCar;
       this.saveCars(cars);
       firebaseSync.saveCar(updatedCar).catch((err) => console.warn('Firebase car update notice:', err));
+      this.ensureBrandAndModel(updatedCar.brand, updatedCar.model).catch((err) => console.warn('Auto-register brand notice:', err));
     }
   }
 
@@ -362,6 +366,155 @@ class StorageService {
     localStorage.setItem(QUOTATIONS_KEY, JSON.stringify(INITIAL_QUOTATIONS));
     localStorage.removeItem('blackswan_production_ready');
     this.notify();
+  }
+
+  // --- BRANDS & MODELS CATALOG ---
+  public getBrands(): VehicleBrand[] {
+    try {
+      const data = localStorage.getItem(BRANDS_KEY);
+      if (data !== null) {
+        const parsed: VehicleBrand[] = JSON.parse(data);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch {
+      // Fallback
+    }
+
+    // Initialize with INITIAL_BRANDS and also seed any models found in existing cars
+    const initialList: VehicleBrand[] = [...INITIAL_BRANDS];
+    const cars = this.getCars();
+    cars.forEach(car => {
+      if (!car.brand) return;
+      const brandName = car.brand.trim();
+      const modelName = car.model ? car.model.trim() : '';
+      const bId = formatBrandId(brandName);
+      const existing = initialList.find(b => b.id === bId || b.name.toLowerCase() === brandName.toLowerCase());
+      if (existing) {
+        if (modelName && !existing.models.some(m => m.toLowerCase() === modelName.toLowerCase())) {
+          existing.models.push(modelName);
+          existing.models.sort();
+        }
+      } else {
+        initialList.push({
+          id: bId,
+          name: brandName,
+          models: modelName ? [modelName] : []
+        });
+      }
+    });
+
+    initialList.sort((a, b) => a.name.localeCompare(b.name));
+    this.saveBrands(initialList);
+    return initialList;
+  }
+
+  public setBrandsFromFirebase(firebaseBrands: VehicleBrand[]) {
+    if (!firebaseBrands || firebaseBrands.length === 0) return;
+    const current = this.getBrands();
+    const brandMap = new Map<string, VehicleBrand>();
+
+    // Index current
+    current.forEach(b => brandMap.set(b.id, { ...b, models: [...b.models] }));
+
+    // Merge firebase brands
+    firebaseBrands.forEach(fb => {
+      const existing = brandMap.get(fb.id);
+      if (existing) {
+        const combinedModels = Array.from(new Set([...existing.models, ...fb.models])).filter(Boolean).sort();
+        brandMap.set(fb.id, {
+          ...existing,
+          name: fb.name || existing.name,
+          models: combinedModels,
+          updatedAt: fb.updatedAt || existing.updatedAt
+        });
+      } else {
+        brandMap.set(fb.id, { ...fb });
+      }
+    });
+
+    const merged = Array.from(brandMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+    localStorage.setItem(BRANDS_KEY, JSON.stringify(merged));
+    this.notify();
+  }
+
+  public saveBrands(brands: VehicleBrand[]) {
+    const cleanList = brands.map(b => ({
+      ...b,
+      models: Array.from(new Set(b.models.map(m => m.trim()))).filter(Boolean).sort()
+    })).sort((a, b) => a.name.localeCompare(b.name));
+
+    localStorage.setItem(BRANDS_KEY, JSON.stringify(cleanList));
+    this.notify();
+  }
+
+  public async addBrand(brandName: string, initialModel?: string): Promise<VehicleBrand> {
+    const trimmedBrand = brandName.trim();
+    const brandId = formatBrandId(trimmedBrand);
+    const brands = this.getBrands();
+    const existing = brands.find(b => b.id === brandId || b.name.toLowerCase() === trimmedBrand.toLowerCase());
+
+    const cleanModel = initialModel ? initialModel.trim() : '';
+
+    if (existing) {
+      if (cleanModel && !existing.models.some(m => m.toLowerCase() === cleanModel.toLowerCase())) {
+        existing.models = [...existing.models, cleanModel].sort();
+        existing.updatedAt = new Date().toISOString();
+        this.saveBrands(brands);
+        firebaseSync.saveBrand(existing).catch(err => console.warn('Firebase saveBrand notice:', err));
+      }
+      return existing;
+    }
+
+    const newBrand: VehicleBrand = {
+      id: brandId,
+      name: trimmedBrand,
+      models: cleanModel ? [cleanModel] : [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    brands.push(newBrand);
+    brands.sort((a, b) => a.name.localeCompare(b.name));
+    this.saveBrands(brands);
+    firebaseSync.saveBrand(newBrand).catch(err => console.warn('Firebase saveBrand notice:', err));
+    return newBrand;
+  }
+
+  public async addModelToBrand(brandName: string, modelName: string): Promise<VehicleBrand | null> {
+    const trimmedBrand = brandName.trim();
+    const cleanModel = modelName.trim();
+    if (!trimmedBrand || !cleanModel) return null;
+
+    const brandId = formatBrandId(trimmedBrand);
+    const brands = this.getBrands();
+    const brand = brands.find(b => b.id === brandId || b.name.toLowerCase() === trimmedBrand.toLowerCase());
+
+    if (!brand) {
+      return await this.addBrand(trimmedBrand, cleanModel);
+    }
+
+    if (!brand.models.some(m => m.toLowerCase() === cleanModel.toLowerCase())) {
+      brand.models = [...brand.models, cleanModel].sort();
+      brand.updatedAt = new Date().toISOString();
+      this.saveBrands(brands);
+      firebaseSync.saveBrand(brand).catch(err => console.warn('Firebase saveBrand notice:', err));
+    }
+
+    return brand;
+  }
+
+  public async ensureBrandAndModel(brandName: string, modelName?: string): Promise<VehicleBrand | null> {
+    if (!brandName || !brandName.trim()) return null;
+    const cleanBrand = brandName.trim();
+    const cleanModel = modelName ? modelName.trim() : '';
+
+    if (cleanModel) {
+      return await this.addModelToBrand(cleanBrand, cleanModel);
+    } else {
+      return await this.addBrand(cleanBrand);
+    }
   }
 }
 
