@@ -22,7 +22,18 @@ import {
 } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
 import { Car, Review, Inquiry, Customer, Quotation } from './types';
-import { INITIAL_CARS, INITIAL_REVIEWS, INITIAL_INQUIRIES, INITIAL_CUSTOMERS, INITIAL_QUOTATIONS } from './data/initialData';
+import { 
+  INITIAL_CARS, 
+  INITIAL_REVIEWS, 
+  INITIAL_INQUIRIES, 
+  INITIAL_CUSTOMERS, 
+  INITIAL_QUOTATIONS,
+  DEMO_SAMPLE_CARS,
+  DEMO_SAMPLE_REVIEWS,
+  DEMO_SAMPLE_INQUIRIES,
+  DEMO_SAMPLE_CUSTOMERS,
+  DEMO_SAMPLE_QUOTATIONS
+} from './data/initialData';
 
 // 1. Initialize Firebase Services
 const app = initializeApp(firebaseConfig);
@@ -199,24 +210,42 @@ class FirebaseSyncService {
   }
 
   /**
+   * Delete all cars specifically from Firestore.
+   */
+  public async deleteAllCars(): Promise<number> {
+    let deletedCount = 0;
+    try {
+      const snapshot = await getDocs(collection(db, 'cars'));
+      for (const docSnapshot of snapshot.docs) {
+        await deleteDoc(doc(db, 'cars', docSnapshot.id));
+        deletedCount++;
+      }
+      console.log(`Successfully deleted ${deletedCount} cars from Firestore.`);
+    } catch (err) {
+      console.warn('Error deleting all cars from Firebase:', err);
+    }
+    return deletedCount;
+  }
+
+  /**
    * Optional manual helper to restore demo catalog if explicitly requested by admin.
    * NEVER runs automatically.
    */
   public async seedDemoData(): Promise<void> {
     try {
-      for (const car of INITIAL_CARS) {
+      for (const car of DEMO_SAMPLE_CARS) {
         await setDoc(doc(db, 'cars', car.id), cleanDataForFirestore(car));
       }
-      for (const rev of INITIAL_REVIEWS) {
+      for (const rev of DEMO_SAMPLE_REVIEWS) {
         await setDoc(doc(db, 'reviews', rev.id), cleanDataForFirestore(rev));
       }
-      for (const inq of INITIAL_INQUIRIES) {
+      for (const inq of DEMO_SAMPLE_INQUIRIES) {
         await setDoc(doc(db, 'inquiries', inq.id), cleanDataForFirestore(inq));
       }
-      for (const cust of INITIAL_CUSTOMERS) {
+      for (const cust of DEMO_SAMPLE_CUSTOMERS) {
         await setDoc(doc(db, 'customers', cust.id), cleanDataForFirestore(cust));
       }
-      for (const quot of INITIAL_QUOTATIONS) {
+      for (const quot of DEMO_SAMPLE_QUOTATIONS) {
         await setDoc(doc(db, 'quotations', quot.id), cleanDataForFirestore(quot));
       }
       console.log('Demo catalog seeded manually.');

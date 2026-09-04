@@ -92,40 +92,46 @@ service cloud.firestore {
              data.status in ['Borrador', 'Enviada', 'En Negociación', 'Aprobada', 'Rechazada', 'Vencida'];
     }
 
+    // System Config & Production Metadata
+    match /system/{docId} {
+      allow get, list: if true;
+      allow write: if true;
+    }
+
     // Vehicle Inventory Collection
     match /cars/{carId} {
       allow get, list: if true;
       allow create: if isValidId(carId) && isValidCar(incoming());
       allow update: if isValidId(carId) && isValidCar(incoming());
-      allow delete: if isAdmin() || isValidId(carId);
+      allow delete: if true;
     }
 
     // Inquiries Collection (Customer Leads)
     match /inquiries/{inquiryId} {
       allow get, list: if true;
       allow create: if isValidId(inquiryId) && isValidInquiry(incoming());
-      allow update, delete: if isAdmin() || isValidId(inquiryId);
+      allow update, delete: if true;
     }
 
     // Reviews Collection
     match /reviews/{reviewId} {
       allow get, list: if true;
       allow create: if isValidId(reviewId) && isValidReview(incoming());
-      allow update, delete: if isAdmin() || isValidId(reviewId);
+      allow update, delete: if true;
     }
 
     // Customers CRM Collection
     match /customers/{customerId} {
       allow get, list: if true;
       allow create: if isValidId(customerId) && isValidCustomer(incoming());
-      allow update, delete: if isAdmin() || isValidId(customerId);
+      allow update, delete: if true;
     }
 
     // Quotations Collection
     match /quotations/{quotationId} {
       allow get, list: if true;
       allow create: if isValidId(quotationId) && isValidQuotation(incoming());
-      allow update, delete: if isAdmin() || isValidId(quotationId);
+      allow update, delete: if true;
     }
   }
 }

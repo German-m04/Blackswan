@@ -1,6 +1,8 @@
 import { Car, Review, Inquiry, Customer, Quotation } from '../types';
 
-export const INITIAL_CARS: Car[] = [
+export const INITIAL_CARS: Car[] = [];
+
+export const DEMO_SAMPLE_CARS: Car[] = [
   {
     id: 'car-ford-cargo',
     title: 'Ford Cargo 1722',
@@ -410,7 +412,9 @@ export const INITIAL_CARS: Car[] = [
   }
 ];
 
-export const INITIAL_REVIEWS: Review[] = [
+export const INITIAL_REVIEWS: Review[] = [];
+
+export const DEMO_SAMPLE_REVIEWS: Review[] = [
   {
     id: 'rev-1',
     author: 'Ignacio Peralta',
@@ -453,7 +457,9 @@ export const INITIAL_REVIEWS: Review[] = [
   }
 ];
 
-export const INITIAL_INQUIRIES: Inquiry[] = [
+export const INITIAL_INQUIRIES: Inquiry[] = [];
+
+export const DEMO_SAMPLE_INQUIRIES: Inquiry[] = [
   {
     id: 'inq-1',
     name: 'Carlos Menéndez',
@@ -496,7 +502,9 @@ export const INITIAL_INQUIRIES: Inquiry[] = [
   }
 ];
 
-export const INITIAL_CUSTOMERS: Customer[] = [
+export const INITIAL_CUSTOMERS: Customer[] = [];
+
+export const DEMO_SAMPLE_CUSTOMERS: Customer[] = [
   {
     id: 'cust-1',
     name: 'Carlos Menéndez',
@@ -559,7 +567,9 @@ export const INITIAL_CUSTOMERS: Customer[] = [
   }
 ];
 
-export const INITIAL_QUOTATIONS: Quotation[] = [
+export const INITIAL_QUOTATIONS: Quotation[] = [];
+
+export const DEMO_SAMPLE_QUOTATIONS: Quotation[] = [
   {
     id: 'quot-1',
     code: 'BS-COT-2026-001',

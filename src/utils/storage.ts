@@ -31,11 +31,7 @@ class StorageService {
       if (data !== null) {
         return JSON.parse(data);
       }
-      if (this.isProductionReady()) {
-        return [];
-      }
-      localStorage.setItem(CARS_KEY, JSON.stringify(INITIAL_CARS));
-      return INITIAL_CARS;
+      return [];
     } catch {
       return [];
     }
@@ -74,10 +70,23 @@ class StorageService {
     }
   }
 
-  public deleteCar(id: string) {
+  public async deleteCar(id: string): Promise<void> {
     const cars = this.getCars().filter((c) => c.id !== id);
     this.saveCars(cars);
-    firebaseSync.deleteCar(id).catch((err) => console.warn('Firebase car delete notice:', err));
+    try {
+      await firebaseSync.deleteCar(id);
+    } catch (err) {
+      console.warn('Firebase car delete notice:', err);
+    }
+  }
+
+  public async deleteAllCars(): Promise<void> {
+    this.saveCars([]);
+    try {
+      await firebaseSync.deleteAllCars();
+    } catch (err) {
+      console.warn('Firebase delete all cars notice:', err);
+    }
   }
 
   // --- REVIEWS ---
@@ -87,11 +96,7 @@ class StorageService {
       if (data !== null) {
         return JSON.parse(data);
       }
-      if (this.isProductionReady()) {
-        return [];
-      }
-      localStorage.setItem(REVIEWS_KEY, JSON.stringify(INITIAL_REVIEWS));
-      return INITIAL_REVIEWS;
+      return [];
     } catch {
       return [];
     }
@@ -122,11 +127,15 @@ class StorageService {
     return newRev;
   }
 
-  public deleteReview(id: string) {
+  public async deleteReview(id: string): Promise<void> {
     const reviews = this.getReviews().filter((r) => r.id !== id);
     localStorage.setItem(REVIEWS_KEY, JSON.stringify(reviews));
     this.notify();
-    firebaseSync.deleteReview(id).catch((err) => console.warn('Firebase review delete notice:', err));
+    try {
+      await firebaseSync.deleteReview(id);
+    } catch (err) {
+      console.warn('Firebase review delete notice:', err);
+    }
   }
 
   public toggleReviewApproval(id: string) {
@@ -148,11 +157,7 @@ class StorageService {
       if (data !== null) {
         return JSON.parse(data);
       }
-      if (this.isProductionReady()) {
-        return [];
-      }
-      localStorage.setItem(INQUIRIES_KEY, JSON.stringify(INITIAL_INQUIRIES));
-      return INITIAL_INQUIRIES;
+      return [];
     } catch {
       return [];
     }
@@ -192,11 +197,15 @@ class StorageService {
     }
   }
 
-  public deleteInquiry(id: string) {
+  public async deleteInquiry(id: string): Promise<void> {
     const inquiries = this.getInquiries().filter((i) => i.id !== id);
     localStorage.setItem(INQUIRIES_KEY, JSON.stringify(inquiries));
     this.notify();
-    firebaseSync.deleteInquiry(id).catch((err) => console.warn('Firebase inquiry delete notice:', err));
+    try {
+      await firebaseSync.deleteInquiry(id);
+    } catch (err) {
+      console.warn('Firebase inquiry delete notice:', err);
+    }
   }
 
   // --- CUSTOMERS (Clientes) ---
@@ -206,11 +215,7 @@ class StorageService {
       if (data !== null) {
         return JSON.parse(data);
       }
-      if (this.isProductionReady()) {
-        return [];
-      }
-      localStorage.setItem(CUSTOMERS_KEY, JSON.stringify(INITIAL_CUSTOMERS));
-      return INITIAL_CUSTOMERS;
+      return [];
     } catch {
       return [];
     }
@@ -249,10 +254,14 @@ class StorageService {
     }
   }
 
-  public deleteCustomer(id: string) {
+  public async deleteCustomer(id: string): Promise<void> {
     const customers = this.getCustomers().filter((c) => c.id !== id);
     this.saveCustomers(customers);
-    firebaseSync.deleteCustomer(id).catch((err) => console.warn('Firebase customer delete notice:', err));
+    try {
+      await firebaseSync.deleteCustomer(id);
+    } catch (err) {
+      console.warn('Firebase customer delete notice:', err);
+    }
   }
 
   // --- QUOTATIONS (Cotizaciones & Tasaciones) ---
@@ -262,11 +271,7 @@ class StorageService {
       if (data !== null) {
         return JSON.parse(data);
       }
-      if (this.isProductionReady()) {
-        return [];
-      }
-      localStorage.setItem(QUOTATIONS_KEY, JSON.stringify(INITIAL_QUOTATIONS));
-      return INITIAL_QUOTATIONS;
+      return [];
     } catch {
       return [];
     }
@@ -317,10 +322,14 @@ class StorageService {
     }
   }
 
-  public deleteQuotation(id: string) {
+  public async deleteQuotation(id: string): Promise<void> {
     const quotations = this.getQuotations().filter((q) => q.id !== id);
     this.saveQuotations(quotations);
-    firebaseSync.deleteQuotation(id).catch((err) => console.warn('Firebase quotation delete notice:', err));
+    try {
+      await firebaseSync.deleteQuotation(id);
+    } catch (err) {
+      console.warn('Firebase quotation delete notice:', err);
+    }
   }
 
   public async syncAllToFirebase() {

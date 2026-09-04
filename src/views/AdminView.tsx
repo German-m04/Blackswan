@@ -167,30 +167,23 @@ export const AdminView: React.FC<AdminViewProps> = ({
   };
 
   const handleClearAllForProduction = async () => {
-    const confirm1 = window.confirm(
+    const confirmed = window.confirm(
       '⚠️ ATENCIÓN: VACIAR BASE DE DATOS PARA PRODUCCIÓN\n\n' +
       '¿Deseas eliminar permanentemente TODOS los datos demo (autos, clientes, cotizaciones y reseñas) de Firebase Firestore y del navegador?\n\n' +
       'Esta acción dejará la base de datos 100% limpia y vacía, lista para cargar los autos, clientes y cotizaciones reales de Black Swan Motors sin que vuelvan a aparecer datos de prueba.'
     );
-    if (!confirm1) return;
-
-    const confirm2 = window.prompt(
-      'Para confirmar de forma segura, escribe la palabra "PRODUCCION" en mayúsculas:'
-    );
-    if (confirm2 !== 'PRODUCCION') {
-      alert('Operación cancelada. No se modificó ningún dato.');
-      return;
-    }
+    if (!confirmed) return;
 
     setIsSyncingDb(true);
     setSyncResult(null);
     try {
       const res = await storage.clearAllForProduction();
       refreshLocalData();
+      onDataChanged();
       setSyncResult({
         success: true,
         message: '¡Base de datos lista para producción!',
-        details: `Se eliminaron ${res.deletedCount} registros de prueba. Tu inventario, clientes y cotizaciones ahora están 100% en blanco para operar en producción.`
+        details: `Se eliminaron los registros de prueba (${res.deletedCount} eliminados de Firebase). Tu inventario, clientes y cotizaciones ahora están 100% en blanco para operar en producción.`
       });
     } catch (err: any) {
       setSyncResult({
@@ -455,10 +448,26 @@ export const AdminView: React.FC<AdminViewProps> = ({
     refreshLocalData();
   };
 
-  const handleDeleteCar = (id: string, title: string) => {
+  const handleDeleteCar = async (id: string, title: string) => {
     if (window.confirm(`¿Confirmás eliminar el vehículo ${title} del inventario?`)) {
-      storage.deleteCar(id);
+      await storage.deleteCar(id);
       refreshLocalData();
+      onDataChanged();
+    }
+  };
+
+  const handleDeleteAllCars = async () => {
+    if (window.confirm('¿Confirmás eliminar TODOS los vehículos del inventario? Esta acción vaciará el catálogo de autos en la base de datos Firestore y en el sistema.')) {
+      setIsSyncingDb(true);
+      try {
+        await storage.deleteAllCars();
+        refreshLocalData();
+        onDataChanged();
+      } catch (err: any) {
+        console.error('Error al vaciar catálogo:', err);
+      } finally {
+        setIsSyncingDb(false);
+      }
     }
   };
 
@@ -546,10 +555,11 @@ export const AdminView: React.FC<AdminViewProps> = ({
     refreshLocalData();
   };
 
-  const handleDeleteCust = (id: string, name: string) => {
+  const handleDeleteCust = async (id: string, name: string) => {
     if (window.confirm(`¿Desea eliminar la ficha del cliente ${name}?`)) {
-      storage.deleteCustomer(id);
+      await storage.deleteCustomer(id);
       refreshLocalData();
+      onDataChanged();
     }
   };
 
@@ -674,31 +684,40 @@ export const AdminView: React.FC<AdminViewProps> = ({
     refreshLocalData();
   };
 
-  const handleDeleteQuot = (id: string, code: string) => {
+  const handleDeleteQuot = async (id: string, code: string) => {
     if (window.confirm(`¿Desea eliminar la cotización ${code}?`)) {
-      storage.deleteQuotation(id);
+      await storage.deleteQuotation(id);
       refreshLocalData();
+      onDataChanged();
     }
   };
 
   const handleUpdateInquiryStatus = (id: string, status: Inquiry['status']) => {
     storage.updateInquiryStatus(id, status);
     refreshLocalData();
+    onDataChanged();
   };
 
-  const handleDeleteInquiry = (id: string) => {
-    storage.deleteInquiry(id);
-    refreshLocalData();
+  const handleDeleteInquiry = async (id: string) => {
+    if (window.confirm('¿Desea eliminar esta consulta?')) {
+      await storage.deleteInquiry(id);
+      refreshLocalData();
+      onDataChanged();
+    }
   };
 
   const handleToggleReview = (id: string) => {
     storage.toggleReviewApproval(id);
     refreshLocalData();
+    onDataChanged();
   };
 
-  const handleDeleteReview = (id: string) => {
-    storage.deleteReview(id);
-    refreshLocalData();
+  const handleDeleteReview = async (id: string) => {
+    if (window.confirm('¿Desea eliminar esta reseña?')) {
+      await storage.deleteReview(id);
+      refreshLocalData();
+      onDataChanged();
+    }
   };
 
   const handleResetData = () => {
@@ -1235,6 +1254,19 @@ export const AdminView: React.FC<AdminViewProps> = ({
             </div>
 
             <div className="flex items-center gap-3">
+              {cars.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleDeleteAllCars}
+                  disabled={isSyncingDb}
+                  className="px-3 py-2.5 bg-red-950/40 hover:bg-red-900/60 border border-red-500/40 hover:border-red-500 text-red-300 hover:text-white disabled:opacity-50 text-[10px] uppercase font-bold tracking-widest flex items-center gap-1.5 transition-all"
+                  title="Eliminar todos los vehículos para dejar el catálogo en blanco"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                  <span>Vaciar Inventario ({cars.length})</span>
+                </button>
+              )}
+
               <button
                 onClick={() => exportToCsv('blackswan_vehiculos.csv', cars)}
                 className="px-3 py-2.5 bg-[#050505] border border-white/10 text-white/70 hover:text-white text-[10px] uppercase font-bold tracking-widest flex items-center gap-1.5"
