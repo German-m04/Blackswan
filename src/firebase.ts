@@ -126,17 +126,36 @@ export async function logOut(): Promise<void> {
   }
 }
 
-export const ADMIN_EMAILS = [
+/**
+ * Lista explícita y cerrada de correos electrónicos autorizados para el rol de Administrador.
+ * Ninguna otra cuenta de Google tendrá acceso al panel de administración.
+ */
+export const AUTHORIZED_ADMIN_EMAILS: readonly string[] = [
   'germanmountrichas@gmail.com',
   'blackswan202614@gmail.com'
 ];
 
+export const ADMIN_EMAILS = AUTHORIZED_ADMIN_EMAILS;
 export const ADMIN_EMAIL = 'germanmountrichas@gmail.com';
 
+/**
+ * Valida de forma estricta que solo correos electrónicos específicos autorizados
+ * puedan acceder al panel de administrador, en lugar de permitir cualquier cuenta de Google.
+ *
+ * @param user Objeto User de Firebase Authentication (o null)
+ * @returns true únicamente si el usuario está autenticado y su correo coincide exactamente con la lista autorizada
+ */
 export function isUserAdmin(user: User | null): boolean {
-  if (!user || !user.email) return false;
-  const normalizedEmail = user.email.trim().toLowerCase();
-  return ADMIN_EMAILS.some((admin) => admin.toLowerCase() === normalizedEmail);
+  if (!user || !user.email) {
+    return false;
+  }
+
+  const userEmail = user.email.trim().toLowerCase();
+
+  // Verifica que el correo esté en la lista cerrada de administradores autorizados
+  return AUTHORIZED_ADMIN_EMAILS.some(
+    (authorizedEmail) => authorizedEmail.trim().toLowerCase() === userEmail
+  );
 }
 
 /**

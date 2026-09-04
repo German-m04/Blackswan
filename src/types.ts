@@ -131,6 +131,9 @@ export interface Car {
   priceUsd: number;
   priceArs: number;
   priceOnDemand?: boolean; // Precio a consultar
+  purchasePriceUsd?: number; // Precio de compra / adquisición en USD
+  purchaseExpensesUsd?: number; // Gastos adicionales (mecánica, chapa, gestoría, flete) en USD
+  purchaseDate?: string; // Fecha de compra / ingreso al stock
   km: number;
   hours?: string; // Horas de uso de motor, e.g. "21349 hs"
   licensePlate?: string; // Dominio / Patente, e.g. "JTL158"

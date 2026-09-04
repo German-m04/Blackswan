@@ -254,6 +254,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
   // Extended inspection and technical sheet fields
   const [formPriceOnDemand, setFormPriceOnDemand] = useState(false);
+  const [formPurchasePriceUsd, setFormPurchasePriceUsd] = useState<number | ''>('');
+  const [formPurchaseExpensesUsd, setFormPurchaseExpensesUsd] = useState<number | ''>('');
+  const [formPurchaseDate, setFormPurchaseDate] = useState('');
   const [formHours, setFormHours] = useState('');
   const [formLicensePlate, setFormLicensePlate] = useState('');
   const [formLocationUnit, setFormLocationUnit] = useState('');
@@ -313,6 +316,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
     setFormYear(2022);
     setFormPriceUsd(145000);
     setFormPriceArs(195750000);
+    setFormPurchasePriceUsd(118000);
+    setFormPurchaseExpensesUsd(2000);
+    setFormPurchaseDate(new Date().toISOString().split('T')[0]);
     setFormKm(12000);
     setFormTransmission('Automática');
     setFormFuel('Nafta');
@@ -348,6 +354,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
     setFormYear(car.year);
     setFormPriceUsd(car.priceUsd);
     setFormPriceArs(car.priceArs);
+    setFormPurchasePriceUsd(typeof car.purchasePriceUsd === 'number' ? car.purchasePriceUsd : '');
+    setFormPurchaseExpensesUsd(typeof car.purchaseExpensesUsd === 'number' ? car.purchaseExpensesUsd : '');
+    setFormPurchaseDate(car.purchaseDate || '');
     setFormKm(car.km);
     setFormTransmission(car.transmission);
     setFormFuel(car.fuel);
@@ -418,6 +427,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
       equipment: equipmentList.length > 0 ? equipmentList : ['Climatizador', 'Sensores de Estacionamiento'],
       singleOwner: true,
       officialServices: true,
+      ...(formPurchasePriceUsd !== '' && !isNaN(Number(formPurchasePriceUsd)) ? { purchasePriceUsd: Number(formPurchasePriceUsd) } : {}),
+      ...(formPurchaseExpensesUsd !== '' && !isNaN(Number(formPurchaseExpensesUsd)) ? { purchaseExpensesUsd: Number(formPurchaseExpensesUsd) } : {}),
+      ...(formPurchaseDate?.trim() ? { purchaseDate: formPurchaseDate.trim() } : {}),
       ...(formHours?.trim() ? { hours: formHours.trim() } : {}),
       ...(formLicensePlate?.trim() ? { licensePlate: formLicensePlate.trim() } : {}),
       ...(formLocationUnit?.trim() ? { locationUnit: formLocationUnit.trim() } : {}),
@@ -432,6 +444,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
         ...editingCar,
         ...carPayload
       };
+      if (formPurchasePriceUsd === '' || isNaN(Number(formPurchasePriceUsd))) delete (updatedCar as any).purchasePriceUsd;
+      if (formPurchaseExpensesUsd === '' || isNaN(Number(formPurchaseExpensesUsd))) delete (updatedCar as any).purchaseExpensesUsd;
+      if (!formPurchaseDate?.trim()) delete (updatedCar as any).purchaseDate;
       if (!formHours?.trim()) delete (updatedCar as any).hours;
       if (!formLicensePlate?.trim()) delete (updatedCar as any).licensePlate;
       if (!formLocationUnit?.trim()) delete (updatedCar as any).locationUnit;
@@ -2030,6 +2045,130 @@ export const AdminView: React.FC<AdminViewProps> = ({
                     className="w-full bg-[#0a0a0a] border border-white/10 px-3 py-2 text-white text-xs focus:outline-none focus:border-[#D4AF37]"
                   />
                 </div>
+              </div>
+
+              {/* COMPRA Y VALORIZACIÓN: COSTOS Y RENDIMIENTO */}
+              <div className="bg-[#050505] border border-[#D4AF37]/30 p-5 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-3">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-[#D4AF37]" />
+                    <span className="text-xs font-serif text-white uppercase tracking-wider font-semibold">
+                      Finanzas: Compra del Auto & Rendimiento Comercial
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-white/40 font-mono">
+                    Control de Costos de Adquisición y Margen
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-widest text-[#D4AF37] font-bold mb-1">
+                      ¿A cuánto compramos el auto? (USD)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="100"
+                      value={formPurchasePriceUsd}
+                      onChange={(e) => setFormPurchasePriceUsd(e.target.value === '' ? '' : Number(e.target.value))}
+                      placeholder="Ej: 18000"
+                      className="w-full bg-[#0a0a0a] border border-[#D4AF37]/40 focus:border-[#D4AF37] px-3 py-2 text-white text-xs font-mono focus:outline-none"
+                    />
+                    <span className="text-[9px] text-white/40 mt-1 block">
+                      Precio de adquisición pagado al dueño anterior
+                    </span>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-widest text-white/60 mb-1">
+                      Gastos Adicionales / Puesta a Punto (USD)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="50"
+                      value={formPurchaseExpensesUsd}
+                      onChange={(e) => setFormPurchaseExpensesUsd(e.target.value === '' ? '' : Number(e.target.value))}
+                      placeholder="Ej: 500 (mecánica, chapa, gestoría)"
+                      className="w-full bg-[#0a0a0a] border border-white/10 focus:border-[#D4AF37] px-3 py-2 text-white text-xs font-mono focus:outline-none"
+                    />
+                    <span className="text-[9px] text-white/40 mt-1 block">
+                      Mantenimiento, detallado, flete, trámites
+                    </span>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] uppercase tracking-widest text-white/60 mb-1">
+                      Fecha de Adquisición / Ingreso
+                    </label>
+                    <input
+                      type="date"
+                      value={formPurchaseDate}
+                      onChange={(e) => setFormPurchaseDate(e.target.value)}
+                      className="w-full bg-[#0a0a0a] border border-white/10 focus:border-[#D4AF37] px-3 py-2 text-white text-xs font-mono focus:outline-none"
+                    />
+                    <span className="text-[9px] text-white/40 mt-1 block">
+                      Fecha de entrada contable al stock
+                    </span>
+                  </div>
+                </div>
+
+                {/* Real-time calculated yield widget */}
+                {formPurchasePriceUsd !== '' && Number(formPurchasePriceUsd) > 0 && (
+                  <div className="p-3.5 bg-white/[0.03] border border-white/10 flex flex-wrap items-center justify-between gap-4">
+                    <div className="space-y-0.5">
+                      <span className="text-[9px] uppercase tracking-wider text-white/40 block">Costo Total Invertido</span>
+                      <span className="text-xs font-mono text-white font-bold">
+                        ${(Number(formPurchasePriceUsd) + (Number(formPurchaseExpensesUsd) || 0)).toLocaleString('en-US')} USD
+                      </span>
+                    </div>
+
+                    <div className="space-y-0.5">
+                      <span className="text-[9px] uppercase tracking-wider text-white/40 block">Precio de Venta</span>
+                      <span className="text-xs font-mono text-white font-bold">
+                        {formPriceOnDemand ? 'A consultar' : `$${Number(formPriceUsd || 0).toLocaleString('en-US')} USD`}
+                      </span>
+                    </div>
+
+                    {!formPriceOnDemand && (
+                      <>
+                        <div className="space-y-0.5">
+                          <span className="text-[9px] uppercase tracking-wider text-white/40 block">Rendimiento Proyectado</span>
+                          {(() => {
+                            const totalCost = Number(formPurchasePriceUsd) + (Number(formPurchaseExpensesUsd) || 0);
+                            const profit = Number(formPriceUsd || 0) - totalCost;
+                            const isPositive = profit >= 0;
+                            return (
+                              <span className={`text-xs font-mono font-bold ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                {isPositive ? '+' : ''}${profit.toLocaleString('en-US')} USD
+                              </span>
+                            );
+                          })()}
+                        </div>
+
+                        <div className="space-y-0.5">
+                          <span className="text-[9px] uppercase tracking-wider text-white/40 block">Margen de Rendimiento (ROI)</span>
+                          {(() => {
+                            const totalCost = Number(formPurchasePriceUsd) + (Number(formPurchaseExpensesUsd) || 0);
+                            const profit = Number(formPriceUsd || 0) - totalCost;
+                            const roi = totalCost > 0 ? (profit / totalCost) * 100 : 0;
+                            const isPositive = roi >= 0;
+                            return (
+                              <span className={`text-xs font-mono font-bold px-2 py-0.5 border ${
+                                isPositive 
+                                  ? 'bg-emerald-950/40 text-emerald-300 border-emerald-500/30' 
+                                  : 'bg-rose-950/40 text-rose-300 border-rose-500/30'
+                              }`}>
+                                {isPositive ? '+' : ''}{roi.toFixed(1)}%
+                              </span>
+                            );
+                          })()}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* COMPUTER IMAGE UPLOADER SECTION */}

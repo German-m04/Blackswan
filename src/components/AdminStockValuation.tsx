@@ -3,9 +3,9 @@ import { Car, VehicleStatus } from '../types';
 import { 
   DollarSign, 
   TrendingUp, 
+  TrendingDown, 
   BarChart3, 
   Layers, 
-  CarFront, 
   Search, 
   Download, 
   Copy, 
@@ -15,7 +15,14 @@ import {
   AlertTriangle,
   ArrowUpDown,
   Filter,
-  Eye
+  Wallet,
+  Percent,
+  PlusCircle,
+  HelpCircle,
+  Clock,
+  ArrowUpRight,
+  ArrowDownRight,
+  CheckCircle2
 } from 'lucide-react';
 import { exportToCsv } from '../utils/imageUtils';
 
@@ -31,7 +38,10 @@ export const AdminStockValuation: React.FC<AdminStockValuationProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'TODOS' | VehicleStatus>('TODOS');
   const [brandFilter, setBrandFilter] = useState<string>('TODAS');
-  const [sortBy, setSortBy] = useState<'price-desc' | 'price-asc' | 'year-desc' | 'km-asc'>('price-desc');
+  const [costFilter, setCostFilter] = useState<'ALL' | 'WITH_COST' | 'MISSING_COST'>('ALL');
+  const [sortBy, setSortBy] = useState<
+    'profit-desc' | 'profit-asc' | 'roi-desc' | 'purchase-desc' | 'price-desc' | 'price-asc' | 'year-desc' | 'km-asc'
+  >('profit-desc');
   const [copiedSummary, setCopiedSummary] = useState(false);
 
   const formatPriceUsd = (val: number) => {
@@ -56,11 +66,24 @@ export const AdminStockValuation: React.FC<AdminStockValuationProps> = ({
     return brands.sort();
   }, [cars]);
 
-  // Overall Financial Calculations
+  // Overall Fleet Segmentation
   const activeStockCars = useMemo(() => {
     return cars.filter((c) => c.status === 'Disponible' || c.status === 'Reservado');
   }, [cars]);
 
+  const availableCars = useMemo(() => {
+    return cars.filter((c) => c.status === 'Disponible');
+  }, [cars]);
+
+  const reservedCars = useMemo(() => {
+    return cars.filter((c) => c.status === 'Reservado');
+  }, [cars]);
+
+  const soldCars = useMemo(() => {
+    return cars.filter((c) => c.status === 'Vendido');
+  }, [cars]);
+
+  // Selling Values (Active Stock)
   const totalStockUsd = useMemo(() => {
     return activeStockCars.reduce((acc, c) => acc + (c.priceUsd || 0), 0);
   }, [activeStockCars]);
@@ -69,29 +92,85 @@ export const AdminStockValuation: React.FC<AdminStockValuationProps> = ({
     return activeStockCars.reduce((acc, c) => acc + (c.priceArs || (c.priceUsd || 0) * 1350), 0);
   }, [activeStockCars]);
 
-  const availableCars = useMemo(() => {
-    return cars.filter((c) => c.status === 'Disponible');
-  }, [cars]);
-
   const availableStockUsd = useMemo(() => {
     return availableCars.reduce((acc, c) => acc + (c.priceUsd || 0), 0);
   }, [availableCars]);
-
-  const reservedCars = useMemo(() => {
-    return cars.filter((c) => c.status === 'Reservado');
-  }, [cars]);
 
   const reservedStockUsd = useMemo(() => {
     return reservedCars.reduce((acc, c) => acc + (c.priceUsd || 0), 0);
   }, [reservedCars]);
 
-  const soldCars = useMemo(() => {
-    return cars.filter((c) => c.status === 'Vendido');
-  }, [cars]);
-
   const soldStockUsd = useMemo(() => {
     return soldCars.reduce((acc, c) => acc + (c.priceUsd || 0), 0);
   }, [soldCars]);
+
+  // -----------------------------------------------------------------
+  // Purchase & Yield / Profitability Calculations (Active Stock)
+  // -----------------------------------------------------------------
+  const activeCarsWithPurchase = useMemo(() => {
+    return activeStockCars.filter((c) => typeof c.purchasePriceUsd === 'number' && c.purchasePriceUsd > 0);
+  }, [activeStockCars]);
+
+  const activeCarsMissingPurchase = useMemo(() => {
+    return activeStockCars.filter((c) => !c.purchasePriceUsd || c.purchasePriceUsd <= 0);
+  }, [activeStockCars]);
+
+  // Total investment cost in active stock (Purchase price + Expenses)
+  const totalPurchaseCostActiveUsd = useMemo(() => {
+    return activeStockCars.reduce((acc, c) => acc + (c.purchasePriceUsd || 0) + (c.purchaseExpensesUsd || 0), 0);
+  }, [activeStockCars]);
+
+  const totalPurchaseBaseActiveUsd = useMemo(() => {
+    return activeStockCars.reduce((acc, c) => acc + (c.purchasePriceUsd || 0), 0);
+  }, [activeStockCars]);
+
+  const totalPurchaseExpensesActiveUsd = useMemo(() => {
+    return activeStockCars.reduce((acc, c) => acc + (c.purchaseExpensesUsd || 0), 0);
+  }, [activeStockCars]);
+
+  // Projected profit on units where purchase price has been recorded
+  const projectedProfitActiveUsd = useMemo(() => {
+    return activeCarsWithPurchase.reduce((acc, c) => {
+      const totalCost = (c.purchasePriceUsd || 0) + (c.purchaseExpensesUsd || 0);
+      const salePrice = c.priceUsd || 0;
+      return acc + (salePrice - totalCost);
+    }, 0);
+  }, [activeCarsWithPurchase]);
+
+  // Cost basis of priced units
+  const costOfPricedActiveUnits = useMemo(() => {
+    return activeCarsWithPurchase.reduce((acc, c) => acc + (c.purchasePriceUsd || 0) + (c.purchaseExpensesUsd || 0), 0);
+  }, [activeCarsWithPurchase]);
+
+  // Margin / ROI % across active fleet
+  const projectedMarginPercent = useMemo(() => {
+    if (costOfPricedActiveUnits <= 0) return 0;
+    return (projectedProfitActiveUsd / costOfPricedActiveUnits) * 100;
+  }, [projectedProfitActiveUsd, costOfPricedActiveUnits]);
+
+  // -----------------------------------------------------------------
+  // Realized Profitability on Sold Units
+  // -----------------------------------------------------------------
+  const soldCarsWithPurchase = useMemo(() => {
+    return soldCars.filter((c) => typeof c.purchasePriceUsd === 'number' && c.purchasePriceUsd > 0);
+  }, [soldCars]);
+
+  const realizedProfitSoldUsd = useMemo(() => {
+    return soldCarsWithPurchase.reduce((acc, c) => {
+      const totalCost = (c.purchasePriceUsd || 0) + (c.purchaseExpensesUsd || 0);
+      const salePrice = c.priceUsd || 0;
+      return acc + (salePrice - totalCost);
+    }, 0);
+  }, [soldCarsWithPurchase]);
+
+  const costOfSoldPricedUnits = useMemo(() => {
+    return soldCarsWithPurchase.reduce((acc, c) => acc + (c.purchasePriceUsd || 0) + (c.purchaseExpensesUsd || 0), 0);
+  }, [soldCarsWithPurchase]);
+
+  const realizedMarginSoldPercent = useMemo(() => {
+    if (costOfSoldPricedUnits <= 0) return 0;
+    return (realizedProfitSoldUsd / costOfSoldPricedUnits) * 100;
+  }, [realizedProfitSoldUsd, costOfSoldPricedUnits]);
 
   // Priced units average (excluding unpriced / on-demand units with price 0)
   const pricedActiveCars = useMemo(() => {
@@ -110,19 +189,28 @@ export const AdminStockValuation: React.FC<AdminStockValuationProps> = ({
 
   // Allocation / breakdown by Brand
   const brandAllocations = useMemo(() => {
-    const map: Record<string, { count: number; totalUsd: number; highestCar: Car; availableCount: number }> = {};
+    const map: Record<
+      string, 
+      { count: number; totalUsd: number; totalCostUsd: number; profitUsd: number; highestCar: Car; availableCount: number }
+    > = {};
 
     activeStockCars.forEach((c) => {
       const b = c.brand || 'Otras';
       if (!map[b]) {
-        map[b] = { count: 0, totalUsd: 0, highestCar: c, availableCount: 0 };
+        map[b] = { count: 0, totalUsd: 0, totalCostUsd: 0, profitUsd: 0, highestCar: c, availableCount: 0 };
       }
       map[b].count++;
-      map[b].totalUsd += (c.priceUsd || 0);
+      const saleVal = c.priceUsd || 0;
+      const costVal = (c.purchasePriceUsd || 0) + (c.purchaseExpensesUsd || 0);
+      map[b].totalUsd += saleVal;
+      map[b].totalCostUsd += costVal;
+      if (typeof c.purchasePriceUsd === 'number' && c.purchasePriceUsd > 0) {
+        map[b].profitUsd += (saleVal - costVal);
+      }
       if (c.status === 'Disponible') {
         map[b].availableCount++;
       }
-      if ((c.priceUsd || 0) > (map[b].highestCar.priceUsd || 0)) {
+      if (saleVal > (map[b].highestCar.priceUsd || 0)) {
         map[b].highestCar = c;
       }
     });
@@ -133,6 +221,8 @@ export const AdminStockValuation: React.FC<AdminStockValuationProps> = ({
         count: data.count,
         availableCount: data.availableCount,
         totalUsd: data.totalUsd,
+        totalCostUsd: data.totalCostUsd,
+        profitUsd: data.profitUsd,
         percentage: totalStockUsd > 0 ? (data.totalUsd / totalStockUsd) * 100 : 0,
         averageUsd: data.count > 0 ? data.totalUsd / data.count : 0,
         highestCar: data.highestCar
@@ -157,21 +247,44 @@ export const AdminStockValuation: React.FC<AdminStockValuationProps> = ({
       // Brand
       const brandMatch = brandFilter === 'TODAS' || c.brand === brandFilter;
 
-      return searchMatch && statusMatch && brandMatch;
+      // Cost Filter
+      let costMatch = true;
+      const hasCost = typeof c.purchasePriceUsd === 'number' && c.purchasePriceUsd > 0;
+      if (costFilter === 'WITH_COST') costMatch = hasCost;
+      if (costFilter === 'MISSING_COST') costMatch = !hasCost;
+
+      return searchMatch && statusMatch && brandMatch && costMatch;
     }).sort((a, b) => {
+      const aCost = (a.purchasePriceUsd || 0) + (a.purchaseExpensesUsd || 0);
+      const bCost = (b.purchasePriceUsd || 0) + (b.purchaseExpensesUsd || 0);
+      const aProfit = (a.priceUsd || 0) - aCost;
+      const bProfit = (b.priceUsd || 0) - bCost;
+      const aRoi = aCost > 0 ? (aProfit / aCost) * 100 : -999;
+      const bRoi = bCost > 0 ? (bProfit / bCost) * 100 : -999;
+
+      if (sortBy === 'profit-desc') return bProfit - aProfit;
+      if (sortBy === 'profit-asc') return aProfit - bProfit;
+      if (sortBy === 'roi-desc') return bRoi - aRoi;
+      if (sortBy === 'purchase-desc') return bCost - aCost;
       if (sortBy === 'price-desc') return (b.priceUsd || 0) - (a.priceUsd || 0);
       if (sortBy === 'price-asc') return (a.priceUsd || 0) - (b.priceUsd || 0);
       if (sortBy === 'year-desc') return b.year - a.year;
       if (sortBy === 'km-asc') return a.km - b.km;
       return 0;
     });
-  }, [cars, searchTerm, statusFilter, brandFilter, sortBy]);
+  }, [cars, searchTerm, statusFilter, brandFilter, costFilter, sortBy]);
 
   // Export CSV
   const handleExportCsv = () => {
     const rows = filteredCars.map((c) => {
       const priceVal = c.priceUsd || 0;
-      const pct = totalStockUsd > 0 ? ((priceVal / totalStockUsd) * 100).toFixed(2) + '%' : '0%';
+      const purchasePrice = c.purchasePriceUsd || 0;
+      const expenses = c.purchaseExpensesUsd || 0;
+      const totalCost = purchasePrice + expenses;
+      const profitVal = purchasePrice > 0 ? priceVal - totalCost : 'N/D';
+      const roiVal = purchasePrice > 0 && totalCost > 0 ? (((priceVal - totalCost) / totalCost) * 100).toFixed(1) + '%' : 'N/D';
+      const pctOfTotal = totalStockUsd > 0 ? ((priceVal / totalStockUsd) * 100).toFixed(2) + '%' : '0%';
+
       return {
         ID: c.id,
         Marca: c.brand,
@@ -182,32 +295,46 @@ export const AdminStockValuation: React.FC<AdminStockValuationProps> = ({
         Patente: c.licensePlate || 'N/D',
         Kilometraje: c.km,
         Horas_Uso: c.hours || 'N/D',
-        Precio_USD: priceVal,
-        Precio_ARS: c.priceArs || priceVal * 1350,
-        Porcentaje_Total_Stock: pct,
+        Fecha_Compra: c.purchaseDate || 'N/D',
+        Precio_Compra_USD: purchasePrice,
+        Gastos_Adicionales_USD: expenses,
+        Costo_Total_Invertido_USD: totalCost,
+        Precio_Venta_USD: priceVal,
+        Precio_Venta_ARS: c.priceArs || priceVal * 1350,
+        Rendimiento_Bruto_USD: profitVal,
+        Margen_ROI: roiVal,
+        Porcentaje_Total_Stock: pctOfTotal,
         Ubicacion: c.locationUnit || c.location || 'Showroom Vicente López'
       };
     });
 
     const timestamp = new Date().toISOString().split('T')[0];
-    exportToCsv(`BlackSwan_Valorizacion_Stock_${timestamp}.csv`, rows);
+    exportToCsv(`BlackSwan_Valorizacion_Rendimiento_${timestamp}.csv`, rows);
   };
 
-  // Copy Summary
+  // Copy Executive Summary
   const handleCopySummary = () => {
-    const summary = `BLACK SWAN MOTORS - REPORTE EJECUTIVO DE VALORIZACIÓN DE STOCK
+    const summary = `BLACK SWAN MOTORS - REPORTE EJECUTIVO DE VALORIZACIÓN Y RENDIMIENTO
 Fecha: ${new Date().toLocaleDateString('es-AR')} ${new Date().toLocaleTimeString('es-AR')}
---------------------------------------------------
-* Capital Total Activo en Stock: ${formatPriceUsd(totalStockUsd)} (aprox. ${formatPriceArs(totalStockArs)})
-* Unidades Activas: ${activeStockCars.length} vehículos
+----------------------------------------------------------------------
+1. VALORIZACIÓN Y CAPITAL ACTIVO EN STOCK:
+* Capital Total de Venta: ${formatPriceUsd(totalStockUsd)} (aprox. ${formatPriceArs(totalStockArs)})
+* Capital Invertido en Compra: ${formatPriceUsd(totalPurchaseCostActiveUsd)}
+  - Compra Base: ${formatPriceUsd(totalPurchaseBaseActiveUsd)}
+  - Gastos Puesta a Punto: ${formatPriceUsd(totalPurchaseExpensesActiveUsd)}
+* Rendimiento Proyectado en Stock: ${projectedProfitActiveUsd >= 0 ? '+' : ''}${formatPriceUsd(projectedProfitActiveUsd)}
+* Margen Promedio sobre Costo (ROI): ${projectedMarginPercent.toFixed(1)}%
+* Unidades Activas: ${activeStockCars.length} vehículos (${activeCarsWithPurchase.length} con costo registrado)
+
+2. DISPONIBILIDAD Y OPERACIONES:
 * Disponibles para Venta Inmediata: ${availableCars.length} unidades (${formatPriceUsd(availableStockUsd)})
 * Capital Comprometido en Reservas: ${reservedCars.length} unidades (${formatPriceUsd(reservedStockUsd)})
-* Histórico Facturado en Vendidos: ${soldCars.length} unidades (${formatPriceUsd(soldStockUsd)})
-* Valor Promedio por Unidad: ${formatPriceUsd(averagePriceUsd)}
+* Rendimiento Realizado en Vendidos: ${realizedProfitSoldUsd >= 0 ? '+' : ''}${formatPriceUsd(realizedProfitSoldUsd)} (${soldCars.length} unidades vendidas)
+* Ticket Promedio Venta / Auto: ${formatPriceUsd(averagePriceUsd)}
 
-CONCENTRACIÓN POR MARCA:
-${brandAllocations.map((b) => `- ${b.brand}: ${formatPriceUsd(b.totalUsd)} (${b.count} un. | ${b.percentage.toFixed(1)}% del stock)`).join('\n')}
---------------------------------------------------`;
+3. CONCENTRACIÓN POR MARCA:
+${brandAllocations.map((b) => `- ${b.brand}: Venta ${formatPriceUsd(b.totalUsd)} | Invertido ${formatPriceUsd(b.totalCostUsd)} | Ganancia ${formatPriceUsd(b.profitUsd)} (${b.count} un.)`).join('\n')}
+----------------------------------------------------------------------`;
 
     navigator.clipboard.writeText(summary);
     setCopiedSummary(true);
@@ -219,35 +346,33 @@ ${brandAllocations.map((b) => `- ${b.brand}: ${formatPriceUsd(b.totalUsd)} (${b.
       {/* ------------------------------------------------------------- */}
       {/* HEADER WITH EXPORT ACTIONS                                     */}
       {/* ------------------------------------------------------------- */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#0a0a0a] border border-white/10 p-5 sm:p-6">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-center justify-center text-[#D4AF37]">
-              <TrendingUp className="w-4 h-4" />
-            </div>
-            <h2 className="text-lg sm:text-xl font-serif text-white font-medium">
-              Valorización de Activos & Capital en Stock
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-6">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <TrendingUp className="w-5 h-5 text-[#D4AF37]" />
+            <h2 className="text-xl sm:text-2xl font-serif text-white uppercase tracking-wider font-light">
+              Valorización de Stock & Rendimiento Comercial
             </h2>
           </div>
-          <p className="text-xs text-white/50 pl-10">
-            Valuación patrimonial consolidada, capital inmovilizado y distribución de portfolio en showroom.
+          <p className="text-xs text-white/50">
+            Control integral del costo de adquisición, precios de venta, utilidad neta proyectada y retorno de capital (ROI).
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={handleCopySummary}
-            className="px-3.5 py-2 bg-[#050505] hover:bg-white/5 border border-white/15 text-xs text-white/80 hover:text-white uppercase tracking-wider font-semibold transition-all flex items-center gap-2"
-            title="Copiar balance de capital al portapapeles"
+            className="px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs uppercase tracking-wider font-medium flex items-center gap-2 transition-all active:scale-95"
+            title="Copiar balance y rendimiento al portapapeles"
           >
             {copiedSummary ? (
               <>
                 <Check className="w-3.5 h-3.5 text-emerald-400" />
-                <span className="text-emerald-400">¡Copiado!</span>
+                <span className="text-emerald-400">¡Reporte Copiado!</span>
               </>
             ) : (
               <>
-                <Copy className="w-3.5 h-3.5 text-[#D4AF37]" />
+                <Copy className="w-3.5 h-3.5 text-white/60" />
                 <span>Copiar Balance</span>
               </>
             )}
@@ -255,24 +380,48 @@ ${brandAllocations.map((b) => `- ${b.brand}: ${formatPriceUsd(b.totalUsd)} (${b.
 
           <button
             onClick={handleExportCsv}
-            className="px-4 py-2 bg-[#D4AF37] hover:bg-[#b89528] text-black text-xs uppercase tracking-wider font-bold transition-all flex items-center gap-2 shadow-lg shadow-[#D4AF37]/10"
+            className="px-3.5 py-2 bg-[#D4AF37] hover:bg-[#c59f2d] text-black text-xs uppercase tracking-wider font-bold flex items-center gap-2 transition-all shadow-md active:scale-95"
           >
             <Download className="w-3.5 h-3.5" />
-            <span>Exportar CSV de Stock</span>
+            <span>Exportar CSV Completo</span>
           </button>
         </div>
       </div>
 
       {/* ------------------------------------------------------------- */}
-      {/* EXECUTIVE KPI FINANCIAL CARDS                                 */}
+      {/* EXECUTIVE KPI FINANCIAL CARDS: VALORIZACIÓN & RENDIMIENTO      */}
       {/* ------------------------------------------------------------- */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Active Stock */}
+        {/* Card 1: Capital Invertido (Compra de Flota) */}
+        <div className="bg-[#0a0a0a] border border-white/10 p-5 space-y-2 relative overflow-hidden">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-white/50 uppercase tracking-widest block font-bold">
+              Capital Invertido (Compra)
+            </span>
+            <div className="p-1.5 rounded bg-white/5 text-[#D4AF37]">
+              <Wallet className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-2xl sm:text-3xl font-serif text-white font-light">
+            {formatPriceUsd(totalPurchaseCostActiveUsd)}
+          </div>
+          <div className="pt-1 flex flex-col gap-0.5 border-t border-white/5">
+            <span className="text-[11px] text-white/60 font-mono flex items-center justify-between">
+              <span>Gastos adicionales:</span>
+              <span className="text-white/80">{formatPriceUsd(totalPurchaseExpensesActiveUsd)}</span>
+            </span>
+            <span className="text-[10px] text-white/40">
+              {activeCarsWithPurchase.length} de {activeStockCars.length} autos con costo registrado
+            </span>
+          </div>
+        </div>
+
+        {/* Card 2: Capital en Venta (Valorización Total) */}
         <div className="bg-[#0a0a0a] border border-[#D4AF37]/30 p-5 space-y-2 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-24 h-24 bg-[#D4AF37]/5 rounded-full blur-xl pointer-events-none" />
           <div className="flex items-center justify-between">
             <span className="text-[10px] text-white/50 uppercase tracking-widest block font-bold">
-              Capital Activo Total
+              Capital en Venta (Stock)
             </span>
             <div className="p-1.5 rounded bg-[#D4AF37]/10 text-[#D4AF37]">
               <DollarSign className="w-4 h-4" />
@@ -286,81 +435,133 @@ ${brandAllocations.map((b) => `- ${b.brand}: ${formatPriceUsd(b.totalUsd)} (${b.
               ≈ {formatPriceArs(totalStockArs)}
             </span>
             <span className="text-[10px] text-white/40">
-              {activeStockCars.length} unidades en inventario activo
+              {activeStockCars.length} unidades en stock activo
             </span>
           </div>
         </div>
 
-        {/* Available Stock */}
-        <div className="bg-[#0a0a0a] border border-white/10 p-5 space-y-2">
+        {/* Card 3: Rendimiento Proyectado (Utilidad en Stock) */}
+        <div className="bg-[#0a0a0a] border border-emerald-500/20 p-5 space-y-2 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-emerald-500/5 rounded-full blur-xl pointer-events-none" />
           <div className="flex items-center justify-between">
-            <span className="text-[10px] text-white/50 uppercase tracking-widest block font-bold">
-              Disponibles para Venta
+            <span className="text-[10px] text-emerald-400 uppercase tracking-widest block font-bold">
+              Rendimiento Proyectado
             </span>
-            <span className="px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-mono font-bold">
-              {availableCars.length} Unidades
-            </span>
+            <div className="p-1.5 rounded bg-emerald-500/10 text-emerald-400">
+              {projectedProfitActiveUsd >= 0 ? (
+                <ArrowUpRight className="w-4 h-4" />
+              ) : (
+                <ArrowDownRight className="w-4 h-4 text-rose-400" />
+              )}
+            </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-serif text-white font-light">
-            {formatPriceUsd(availableStockUsd)}
+          <div className={`text-2xl sm:text-3xl font-serif font-light ${
+            projectedProfitActiveUsd >= 0 ? 'text-emerald-400' : 'text-rose-400'
+          }`}>
+            {projectedProfitActiveUsd >= 0 ? '+' : ''}{formatPriceUsd(projectedProfitActiveUsd)}
           </div>
           <div className="pt-1 flex items-center justify-between text-[10px] text-white/40 border-t border-white/5">
-            <span>Capital realizable</span>
-            <span className="font-mono text-emerald-400">
-              {totalStockUsd > 0 ? ((availableStockUsd / totalStockUsd) * 100).toFixed(0) : 0}% del stock
+            <span>Retorno de Capital (ROI):</span>
+            <span className={`font-mono font-bold px-1.5 py-0.2 rounded ${
+              projectedMarginPercent >= 0 
+                ? 'bg-emerald-500/20 text-emerald-300' 
+                : 'bg-rose-500/20 text-rose-300'
+            }`}>
+              {projectedMarginPercent >= 0 ? '+' : ''}{projectedMarginPercent.toFixed(1)}%
             </span>
           </div>
         </div>
 
-        {/* Reserved Capital */}
+        {/* Card 4: Rendimiento Realizado en Vendidos */}
         <div className="bg-[#0a0a0a] border border-white/10 p-5 space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-[10px] text-white/50 uppercase tracking-widest block font-bold">
-              Capital en Reserva
-            </span>
-            <span className="px-2 py-0.5 bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] font-mono font-bold">
-              {reservedCars.length} Unidades
-            </span>
-          </div>
-          <div className="text-2xl sm:text-3xl font-serif text-amber-300 font-light">
-            {formatPriceUsd(reservedStockUsd)}
-          </div>
-          <div className="pt-1 flex items-center justify-between text-[10px] text-white/40 border-t border-white/5">
-            <span>Operaciones en curso</span>
-            <span className="font-mono text-amber-400">
-              {totalStockUsd > 0 ? ((reservedStockUsd / totalStockUsd) * 100).toFixed(0) : 0}% del stock
-            </span>
-          </div>
-        </div>
-
-        {/* Average Unit Price */}
-        <div className="bg-[#0a0a0a] border border-white/10 p-5 space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] text-white/50 uppercase tracking-widest block font-bold">
-              Ticket Promedio / Auto
+              Ganancia en Vendidos
             </span>
             <div className="p-1.5 rounded bg-white/5 text-white/60">
-              <BarChart3 className="w-4 h-4" />
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
             </div>
           </div>
           <div className="text-2xl sm:text-3xl font-serif text-white font-light">
-            {formatPriceUsd(averagePriceUsd)}
+            {realizedProfitSoldUsd >= 0 ? '+' : ''}{formatPriceUsd(realizedProfitSoldUsd)}
           </div>
           <div className="pt-1 flex items-center justify-between text-[10px] text-white/40 border-t border-white/5">
-            <span>Base de cálculo</span>
-            <span className="font-mono text-white/60">
-              {pricedActiveCars.length} unidades cotizadas
+            <span>{soldCars.length} autos vendidos</span>
+            <span className="font-mono text-emerald-400">
+              {costOfSoldPricedUnits > 0 ? `+${realizedMarginSoldPercent.toFixed(1)}% ROI` : 'Realizado'}
             </span>
           </div>
         </div>
       </div>
 
-      {/* Unpriced warning notice if any */}
-      {unpricedUnits.length > 0 && (
+      {/* Secondary Operations Row */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-[#050505] border border-white/5 p-3.5 flex items-center justify-between">
+          <div>
+            <span className="text-[10px] text-white/40 uppercase tracking-wider block">Disponibles Inmediatos</span>
+            <span className="text-base font-serif text-white font-medium">{formatPriceUsd(availableStockUsd)}</span>
+          </div>
+          <span className="px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[11px] font-mono font-bold">
+            {availableCars.length} unidades
+          </span>
+        </div>
+
+        <div className="bg-[#050505] border border-white/5 p-3.5 flex items-center justify-between">
+          <div>
+            <span className="text-[10px] text-white/40 uppercase tracking-wider block">Operaciones en Reserva</span>
+            <span className="text-base font-serif text-amber-300 font-medium">{formatPriceUsd(reservedStockUsd)}</span>
+          </div>
+          <span className="px-2 py-0.5 bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[11px] font-mono font-bold">
+            {reservedCars.length} unidades
+          </span>
+        </div>
+
+        <div className="bg-[#050505] border border-white/5 p-3.5 flex items-center justify-between">
+          <div>
+            <span className="text-[10px] text-white/40 uppercase tracking-wider block">Ticket Promedio por Auto</span>
+            <span className="text-base font-serif text-white font-medium">{formatPriceUsd(averagePriceUsd)}</span>
+          </div>
+          <span className="text-[10px] font-mono text-white/50">
+            {pricedActiveCars.length} cotizados
+          </span>
+        </div>
+      </div>
+
+      {/* Notice for cars missing purchase cost */}
+      {activeCarsMissingPurchase.length > 0 && (
         <div className="p-4 bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-start gap-3">
           <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+          <div className="space-y-1.5 flex-1">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <p className="font-semibold">
+                Hay {activeCarsMissingPurchase.length} vehículo(s) sin registrar costo de compra:
+              </p>
+              <span className="text-[10px] text-amber-400/70 font-mono">
+                Carga el precio de compra para calcular con precisión el rendimiento neto.
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-2 pt-1">
+              {activeCarsMissingPurchase.map((u) => (
+                <button
+                  key={u.id}
+                  onClick={() => onEditCar(u)}
+                  className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-[11px] font-mono flex items-center gap-1.5 transition-colors"
+                >
+                  <span>{u.title}</span>
+                  <PlusCircle className="w-3 h-3 text-[#D4AF37]" />
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Unpriced warning notice if any */}
+      {unpricedUnits.length > 0 && (
+        <div className="p-4 bg-white/5 border border-white/10 text-white/70 text-xs flex items-start gap-3">
+          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-[#D4AF37]" />
           <div className="space-y-1">
-            <p className="font-semibold">
+            <p className="font-semibold text-white">
               Existen {unpricedUnits.length} unidad(es) con precio "A consultar" o en $0 USD:
             </p>
             <div className="flex flex-wrap gap-2 pt-1">
@@ -368,7 +569,7 @@ ${brandAllocations.map((b) => `- ${b.brand}: ${formatPriceUsd(b.totalUsd)} (${b.
                 <button
                   key={u.id}
                   onClick={() => onEditCar(u)}
-                  className="px-2 py-1 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-[11px] font-mono flex items-center gap-1.5 transition-colors"
+                  className="px-2 py-1 bg-white/10 hover:bg-white/15 border border-white/20 text-[11px] font-mono flex items-center gap-1.5 transition-colors"
                 >
                   <span>{u.title}</span>
                   <Edit3 className="w-3 h-3 text-[#D4AF37]" />
@@ -380,14 +581,14 @@ ${brandAllocations.map((b) => `- ${b.brand}: ${formatPriceUsd(b.totalUsd)} (${b.
       )}
 
       {/* ------------------------------------------------------------- */}
-      {/* BRAND ASSET ALLOCATION / CAPITAL DISTRIBUTION                 */}
+      {/* BRAND ASSET ALLOCATION & PROFIT DISTRIBUTION                  */}
       {/* ------------------------------------------------------------- */}
       <div className="bg-[#0a0a0a] border border-white/10 p-5 sm:p-6 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-4">
           <div className="flex items-center gap-2.5">
             <Layers className="w-4 h-4 text-[#D4AF37]" />
             <h3 className="text-sm font-serif text-white font-medium uppercase tracking-wider">
-              Distribución de Capital por Marca (Portfolio Share)
+              Distribución de Capital & Rendimiento por Marca
             </h3>
           </div>
           <span className="text-[10px] text-white/40 font-mono">
@@ -396,49 +597,55 @@ ${brandAllocations.map((b) => `- ${b.brand}: ${formatPriceUsd(b.totalUsd)} (${b.
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-1">
-          {brandAllocations.map((item) => (
-            <div key={item.brand} className="bg-[#050505] border border-white/5 p-4 space-y-3 hover:border-white/15 transition-colors">
-              <div className="flex items-center justify-between">
-                <span className="font-serif text-sm text-white font-medium">{item.brand}</span>
-                <span className="text-xs font-serif text-[#D4AF37] font-semibold">
-                  {formatPriceUsd(item.totalUsd)}
-                </span>
-              </div>
-
-              {/* Progress visual bar */}
-              <div className="space-y-1">
-                <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-[#D4AF37] transition-all duration-500" 
-                    style={{ width: `${Math.min(100, Math.max(4, item.percentage))}%` }}
-                  />
+          {brandAllocations.map((item) => {
+            const hasProf = item.profitUsd !== 0;
+            const roi = item.totalCostUsd > 0 ? (item.profitUsd / item.totalCostUsd) * 100 : 0;
+            return (
+              <div key={item.brand} className="bg-[#050505] border border-white/5 p-4 space-y-3 hover:border-white/15 transition-colors">
+                <div className="flex items-center justify-between">
+                  <span className="font-serif text-sm text-white font-medium">{item.brand}</span>
+                  <span className="text-xs font-serif text-[#D4AF37] font-semibold">
+                    {formatPriceUsd(item.totalUsd)}
+                  </span>
                 </div>
-                <div className="flex items-center justify-between text-[10px] text-white/40 font-mono">
-                  <span>{item.percentage.toFixed(1)}% del capital</span>
-                  <span>{item.count} un. ({item.availableCount} disp.)</span>
+
+                {/* Progress visual bar */}
+                <div className="space-y-1">
+                  <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-[#D4AF37] transition-all duration-500" 
+                      style={{ width: `${Math.min(100, Math.max(4, item.percentage))}%` }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] text-white/40 font-mono">
+                    <span>{item.percentage.toFixed(1)}% de la venta</span>
+                    <span>{item.count} un. ({item.availableCount} disp.)</span>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-white/5 flex items-center justify-between text-[11px] font-mono">
+                  <span className="text-white/40">Rendimiento:</span>
+                  <span className={item.profitUsd >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
+                    {item.profitUsd >= 0 ? '+' : ''}{formatPriceUsd(item.profitUsd)} ({roi >= 0 ? '+' : ''}{roi.toFixed(1)}%)
+                  </span>
                 </div>
               </div>
-
-              <div className="pt-2 border-t border-white/5 flex items-center justify-between text-[11px]">
-                <span className="text-white/40">Promedio / unidad:</span>
-                <span className="text-white/80 font-mono">{formatPriceUsd(item.averageUsd)}</span>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
       {/* ------------------------------------------------------------- */}
-      {/* DETAILED VALUATION TABLE & SEARCH FILTERS                     */}
+      {/* DETAILED VALUATION & YIELD TABLE WITH SEARCH FILTERS          */}
       {/* ------------------------------------------------------------- */}
       <div className="bg-[#0a0a0a] border border-white/10 p-5 sm:p-6 space-y-5">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-white/10 pb-4">
           <div>
             <h3 className="text-sm font-serif text-white font-medium uppercase tracking-wider">
-              Detalle Individual de Valorización por Vehículo
+              Detalle Individual de Compra, Venta & Rendimiento por Vehículo
             </h3>
             <p className="text-[11px] text-white/40">
-              Listado completo con incidencias individuales sobre el balance total de activos.
+              Compara a cuánto se compró cada unidad y cuánto margen o rendimiento comercial se le extrae.
             </p>
           </div>
 
@@ -448,7 +655,7 @@ ${brandAllocations.map((b) => `- ${b.brand}: ${formatPriceUsd(b.totalUsd)} (${b.
         </div>
 
         {/* Filter Toolbar */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
           {/* Search Box */}
           <div className="relative">
             <Search className="w-3.5 h-3.5 text-white/30 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -476,6 +683,19 @@ ${brandAllocations.map((b) => `- ${b.brand}: ${formatPriceUsd(b.totalUsd)} (${b.
             </select>
           </div>
 
+          {/* Cost Status Filter */}
+          <div>
+            <select
+              value={costFilter}
+              onChange={(e) => setCostFilter(e.target.value as any)}
+              className="w-full bg-[#050505] border border-white/10 px-3 py-2 text-xs text-white focus:outline-none focus:border-[#D4AF37]"
+            >
+              <option value="ALL">Costos: Todos</option>
+              <option value="WITH_COST">Con Costo Registrado</option>
+              <option value="MISSING_COST">Pendientes de Costo</option>
+            </select>
+          </div>
+
           {/* Brand Filter */}
           <div>
             <select
@@ -498,40 +718,51 @@ ${brandAllocations.map((b) => `- ${b.brand}: ${formatPriceUsd(b.totalUsd)} (${b.
               onChange={(e) => setSortBy(e.target.value as any)}
               className="w-full bg-[#050505] border border-white/10 px-3 py-2 text-xs text-white focus:outline-none focus:border-[#D4AF37]"
             >
-              <option value="price-desc">Mayor Valor (USD)</option>
-              <option value="price-asc">Menor Valor (USD)</option>
+              <option value="profit-desc">Mayor Rendimiento ($ USD)</option>
+              <option value="profit-asc">Menor Rendimiento ($ USD)</option>
+              <option value="roi-desc">Mayor Margen / ROI (%)</option>
+              <option value="purchase-desc">Mayor Costo Compra ($)</option>
+              <option value="price-desc">Mayor Precio Venta ($)</option>
+              <option value="price-asc">Menor Precio Venta ($)</option>
               <option value="year-desc">Año Más Reciente</option>
               <option value="km-asc">Menor Kilometraje</option>
             </select>
           </div>
         </div>
 
-        {/* Valuation Table */}
+        {/* Valuation & Yield Table */}
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
+          <table className="w-full text-left text-xs border-collapse min-w-[900px]">
             <thead>
               <tr className="border-b border-white/10 text-[10px] text-white/40 uppercase tracking-widest bg-white/[0.02]">
                 <th className="py-3 px-3">Vehículo</th>
                 <th className="py-3 px-3">Año / Km</th>
                 <th className="py-3 px-3">Patente / Radicación</th>
                 <th className="py-3 px-3">Estado</th>
-                <th className="py-3 px-3 text-right">Valorización USD</th>
-                <th className="py-3 px-3 text-right">Equivalente ARS</th>
-                <th className="py-3 px-3 text-center">% Incidencia</th>
+                <th className="py-3 px-3 text-right">Costo Compra USD</th>
+                <th className="py-3 px-3 text-right">Precio Venta USD</th>
+                <th className="py-3 px-3 text-right">Rendimiento USD</th>
+                <th className="py-3 px-3 text-center">Margen ROI</th>
+                <th className="py-3 px-3 text-center">% Stock</th>
                 <th className="py-3 px-3 text-right">Acción</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
               {filteredCars.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-white/40 font-mono">
+                  <td colSpan={10} className="py-8 text-center text-white/40 font-mono">
                     No se encontraron vehículos que coincidan con los filtros seleccionados.
                   </td>
                 </tr>
               ) : (
                 filteredCars.map((car) => {
                   const carPriceUsd = car.priceUsd || 0;
-                  const carPriceArs = car.priceArs || carPriceUsd * 1350;
+                  const purchasePrice = car.purchasePriceUsd || 0;
+                  const expenses = car.purchaseExpensesUsd || 0;
+                  const totalCost = purchasePrice + expenses;
+                  const hasPurchase = typeof car.purchasePriceUsd === 'number' && car.purchasePriceUsd > 0;
+                  const profitUsd = hasPurchase ? carPriceUsd - totalCost : null;
+                  const roiPercent = hasPurchase && totalCost > 0 ? (profitUsd! / totalCost) * 100 : null;
                   const incidencePct = totalStockUsd > 0 ? (carPriceUsd / totalStockUsd) * 100 : 0;
 
                   return (
@@ -569,7 +800,7 @@ ${brandAllocations.map((b) => `- ${b.brand}: ${formatPriceUsd(b.totalUsd)} (${b.
                         <div className="font-mono font-bold text-white/80">
                           {car.licensePlate || 'Sin registrar'}
                         </div>
-                        <div className="text-[10px] text-white/40 flex items-center gap-1 mt-0.5 truncate max-w-[150px]">
+                        <div className="text-[10px] text-white/40 flex items-center gap-1 mt-0.5 truncate max-w-[140px]">
                           <MapPin className="w-2.5 h-2.5 shrink-0 text-[#D4AF37]" />
                           <span>{car.locationUnit || car.location || 'Showroom Vicente López'}</span>
                         </div>
@@ -590,7 +821,35 @@ ${brandAllocations.map((b) => `- ${b.brand}: ${formatPriceUsd(b.totalUsd)} (${b.
                         </span>
                       </td>
 
-                      {/* Valuation USD */}
+                      {/* Purchase Cost (USD) */}
+                      <td className="py-3.5 px-3 text-right">
+                        {hasPurchase ? (
+                          <div>
+                            <span className="font-mono text-white font-medium text-xs block">
+                              {formatPriceUsd(totalCost)}
+                            </span>
+                            {expenses > 0 ? (
+                              <span className="text-[9px] text-white/40 font-mono block">
+                                Base: {formatPriceUsd(purchasePrice)} + {formatPriceUsd(expenses)} gst
+                              </span>
+                            ) : car.purchaseDate ? (
+                              <span className="text-[9px] text-white/40 font-mono block">
+                                Ingreso: {car.purchaseDate}
+                              </span>
+                            ) : null}
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => onEditCar(car)}
+                            className="text-[10px] text-[#D4AF37] hover:underline font-mono inline-flex items-center gap-1"
+                          >
+                            <PlusCircle className="w-3 h-3" />
+                            <span>Cargar Costo</span>
+                          </button>
+                        )}
+                      </td>
+
+                      {/* Selling Price (USD) */}
                       <td className="py-3.5 px-3 text-right font-serif">
                         {car.priceOnDemand || carPriceUsd <= 0 ? (
                           <span className="text-amber-300 text-[11px] font-mono font-semibold">
@@ -603,20 +862,41 @@ ${brandAllocations.map((b) => `- ${b.brand}: ${formatPriceUsd(b.totalUsd)} (${b.
                         )}
                       </td>
 
-                      {/* Valuation ARS */}
-                      <td className="py-3.5 px-3 text-right font-mono text-white/50 text-[11px]">
-                        {car.priceOnDemand || carPriceUsd <= 0 ? (
-                          <span>-</span>
+                      {/* Yield / Profit (USD) */}
+                      <td className="py-3.5 px-3 text-right font-mono">
+                        {profitUsd !== null && !car.priceOnDemand ? (
+                          <div className="space-y-0.5">
+                            <span className={`font-bold text-xs ${
+                              profitUsd >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                            }`}>
+                              {profitUsd >= 0 ? '+' : ''}{formatPriceUsd(profitUsd)}
+                            </span>
+                          </div>
                         ) : (
-                          formatPriceArs(carPriceArs)
+                          <span className="text-white/30 text-[11px]">-</span>
+                        )}
+                      </td>
+
+                      {/* Margin / ROI (%) */}
+                      <td className="py-3.5 px-3 text-center">
+                        {roiPercent !== null && !car.priceOnDemand ? (
+                          <span className={`inline-block px-1.5 py-0.5 text-[10px] font-mono font-bold border ${
+                            roiPercent >= 0 
+                              ? 'bg-emerald-950/40 text-emerald-400 border-emerald-500/30' 
+                              : 'bg-rose-950/40 text-rose-400 border-rose-500/30'
+                          }`}>
+                            {roiPercent >= 0 ? '+' : ''}{roiPercent.toFixed(1)}%
+                          </span>
+                        ) : (
+                          <span className="text-white/30 text-[11px] font-mono">-</span>
                         )}
                       </td>
 
                       {/* Incidence % */}
                       <td className="py-3.5 px-3 text-center">
-                        <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white/5 font-mono text-[11px] text-white/70">
-                          <span>{incidencePct.toFixed(1)}%</span>
-                        </div>
+                        <span className="font-mono text-[11px] text-white/50">
+                          {incidencePct.toFixed(1)}%
+                        </span>
                       </td>
 
                       {/* Edit car action */}
@@ -624,7 +904,7 @@ ${brandAllocations.map((b) => `- ${b.brand}: ${formatPriceUsd(b.totalUsd)} (${b.
                         <button
                           onClick={() => onEditCar(car)}
                           className="px-2.5 py-1.5 bg-white/5 hover:bg-[#D4AF37]/10 border border-white/10 hover:border-[#D4AF37]/40 text-white/70 hover:text-[#D4AF37] text-[10px] uppercase tracking-wider font-bold transition-all inline-flex items-center gap-1.5"
-                          title="Editar precio y especificaciones de la unidad"
+                          title="Editar precio, costo de compra y especificaciones"
                         >
                           <Edit3 className="w-3 h-3" />
                           <span>Editar</span>
@@ -640,17 +920,36 @@ ${brandAllocations.map((b) => `- ${b.brand}: ${formatPriceUsd(b.totalUsd)} (${b.
 
         {/* Footer Summary Row */}
         {filteredCars.length > 0 && (
-          <div className="pt-4 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between text-xs text-white/50 gap-2">
+          <div className="pt-4 border-t border-white/10 flex flex-col md:flex-row items-center justify-between text-xs text-white/50 gap-3">
             <div>
-              Total filtrado en pantalla: <span className="text-white font-medium">{filteredCars.length} vehículos</span>
+              Total en vista: <span className="text-white font-medium">{filteredCars.length} vehículos</span>
             </div>
-            <div className="flex items-center gap-4 font-mono">
+            <div className="flex flex-wrap items-center gap-6 font-mono text-xs">
               <span>
-                Suma filtrada:{' '}
+                Costo Compra: <strong className="text-white font-medium">
+                  {formatPriceUsd(filteredCars.reduce((a, b) => a + (b.purchasePriceUsd || 0) + (b.purchaseExpensesUsd || 0), 0))}
+                </strong>
+              </span>
+              <span>
+                Precio Venta:{' '}
                 <strong className="text-[#D4AF37] font-serif text-sm">
                   {formatPriceUsd(filteredCars.reduce((a, b) => a + (b.priceUsd || 0), 0))}
                 </strong>
               </span>
+              {(() => {
+                const totalFilteredCost = filteredCars.reduce((a, b) => a + (b.purchasePriceUsd || 0) + (b.purchaseExpensesUsd || 0), 0);
+                const totalFilteredSale = filteredCars.reduce((a, b) => a + (b.priceUsd || 0), 0);
+                const totalFilteredProfit = totalFilteredSale - totalFilteredCost;
+                const filteredRoi = totalFilteredCost > 0 ? (totalFilteredProfit / totalFilteredCost) * 100 : 0;
+                return (
+                  <span>
+                    Rendimiento Vista:{' '}
+                    <strong className={totalFilteredProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
+                      {totalFilteredProfit >= 0 ? '+' : ''}{formatPriceUsd(totalFilteredProfit)} ({filteredRoi >= 0 ? '+' : ''}{filteredRoi.toFixed(1)}%)
+                    </strong>
+                  </span>
+                );
+              })()}
             </div>
           </div>
         )}
