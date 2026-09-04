@@ -32,7 +32,6 @@ import {
   Edit3, 
   Trash2, 
   Search, 
-  RefreshCw, 
   Users, 
   FileText, 
   Upload, 
@@ -48,15 +47,10 @@ import {
   Send, 
   ArrowRight,
   ArrowLeft,
-  ShieldCheck,
   ShieldAlert,
   LogOut,
   DollarSign,
-  Database,
-  LogIn,
-  CloudUpload,
-  CheckCircle2,
-  AlertCircle
+  LogIn
 } from 'lucide-react';
 
 interface AdminViewProps {
@@ -96,30 +90,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [quotations, setQuotations] = useState<Quotation[]>([]);
 
-  // Database Synchronization State
-  const [isSyncingDb, setIsSyncingDb] = useState(false);
-  const [syncResult, setSyncResult] = useState<{ success: boolean; message: string; details?: string } | null>(null);
-  const [dbStats, setDbStats] = useState<{
-    carsCount: number;
-    customersCount: number;
-    quotationsCount: number;
-    inquiriesCount: number;
-    reviewsCount: number;
-  } | null>(null);
-
-  const fetchDatabaseStats = async () => {
-    try {
-      const stats = await firebaseSync.getDatabaseStats();
-      setDbStats(stats);
-    } catch {
-      // ignore
-    }
-  };
-
   useEffect(() => {
     setCustomers(storage.getCustomers());
     setQuotations(storage.getQuotations());
-    fetchDatabaseStats();
 
     const unsub = storage.subscribe(() => {
       setCustomers(storage.getCustomers());
@@ -131,97 +104,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const refreshLocalData = () => {
     setCustomers(storage.getCustomers());
     setQuotations(storage.getQuotations());
-    fetchDatabaseStats();
     onDataChanged();
-  };
-
-  const handleSyncAllToDatabase = async () => {
-    setIsSyncingDb(true);
-    setSyncResult(null);
-    try {
-      const res = await storage.syncAllToFirebase();
-      if (res.success || res.carsSynced > 0) {
-        setSyncResult({
-          success: true,
-          message: '¡Base de datos Firestore sincronizada con éxito!',
-          details: `${res.carsSynced} autos con peritaje, ${res.customersSynced} clientes CRM, ${res.quotationsSynced} cotizaciones, ${res.inquiriesSynced} consultas y ${res.reviewsSynced} opiniones registradas en Cloud Firestore.`
-        });
-        await fetchDatabaseStats();
-      } else {
-        setSyncResult({
-          success: false,
-          message: 'Atención al sincronizar con Firestore.',
-          details: res.errors.length > 0 ? res.errors.slice(0, 3).join(' | ') : 'Permisos de acceso requeridos.'
-        });
-      }
-    } catch (err: any) {
-      setSyncResult({
-        success: false,
-        message: 'Error de comunicación con la base de datos Firestore.',
-        details: err?.message || String(err)
-      });
-    } finally {
-      setIsSyncingDb(false);
-      onDataChanged();
-    }
-  };
-
-  const handleClearAllForProduction = async () => {
-    const confirmed = window.confirm(
-      '⚠️ ATENCIÓN: VACIAR BASE DE DATOS PARA PRODUCCIÓN\n\n' +
-      '¿Deseas eliminar permanentemente TODOS los datos demo (autos, clientes, cotizaciones y reseñas) de Firebase Firestore y del navegador?\n\n' +
-      'Esta acción dejará la base de datos 100% limpia y vacía, lista para cargar los autos, clientes y cotizaciones reales de Black Swan Motors sin que vuelvan a aparecer datos de prueba.'
-    );
-    if (!confirmed) return;
-
-    setIsSyncingDb(true);
-    setSyncResult(null);
-    try {
-      const res = await storage.clearAllForProduction();
-      refreshLocalData();
-      onDataChanged();
-      setSyncResult({
-        success: true,
-        message: '¡Base de datos lista para producción!',
-        details: `Se eliminaron los registros de prueba (${res.deletedCount} eliminados de Firebase). Tu inventario, clientes y cotizaciones ahora están 100% en blanco para operar en producción.`
-      });
-    } catch (err: any) {
-      setSyncResult({
-        success: false,
-        message: 'Error al vaciar base de datos',
-        details: err?.message || String(err)
-      });
-    } finally {
-      setIsSyncingDb(false);
-    }
-  };
-
-  const handleSeedDemoData = async () => {
-    const ok = window.confirm(
-      '¿Deseas restaurar los datos de prueba en la base de datos? (Utilizar únicamente para demostraciones o testing)'
-    );
-    if (!ok) return;
-
-    setIsSyncingDb(true);
-    setSyncResult(null);
-    try {
-      await firebaseSync.seedDemoData();
-      storage.resetToDefault();
-      refreshLocalData();
-      setSyncResult({
-        success: true,
-        message: 'Datos demo de prueba restaurados',
-        details: 'Se han cargado las unidades y registros de muestra para pruebas.'
-      });
-    } catch (err: any) {
-      setSyncResult({
-        success: false,
-        message: 'Error al restaurar demo',
-        details: err?.message || String(err)
-      });
-    } finally {
-      setIsSyncingDb(false);
-    }
   };
 
   // ------------------------------------
@@ -473,15 +356,12 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
   const handleDeleteAllCars = async () => {
     if (window.confirm('¿Confirmás eliminar TODOS los vehículos del inventario? Esta acción vaciará el catálogo de autos en la base de datos Firestore y en el sistema.')) {
-      setIsSyncingDb(true);
       try {
         await storage.deleteAllCars();
         refreshLocalData();
         onDataChanged();
       } catch (err: any) {
         console.error('Error al vaciar catálogo:', err);
-      } finally {
-        setIsSyncingDb(false);
       }
     }
   };
@@ -735,13 +615,6 @@ export const AdminView: React.FC<AdminViewProps> = ({
     }
   };
 
-  const handleResetData = () => {
-    if (window.confirm('¿Desea restablecer todas las bases de datos (Inventario, Clientes, Cotizaciones, Reseñas) al estado inicial?')) {
-      storage.resetToDefault();
-      refreshLocalData();
-    }
-  };
-
   // ------------------------------------
   // FILTERING LOGIC
   // ------------------------------------
@@ -919,13 +792,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
               <Settings className="w-3.5 h-3.5" />
               <span>Executive Control Panel</span>
             </div>
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[9px] font-mono uppercase tracking-wider">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span>Firebase Firestore Live</span>
-            </div>
           </div>
           <h1 className="text-2xl sm:text-4xl font-serif font-light text-white">
-            Administración & Bases de Datos
+            Administración
           </h1>
         </div>
 
@@ -946,14 +815,6 @@ export const AdminView: React.FC<AdminViewProps> = ({
               <div className="text-xs text-[#D4AF37] font-semibold">{user.email}</div>
             </div>
           )}
-          <button
-            onClick={handleResetData}
-            className="px-3.5 py-2.5 bg-[#050505] border border-white/10 text-[10px] uppercase tracking-widest font-bold text-white/50 hover:text-rose-400 transition-colors flex items-center gap-1.5"
-            title="Restablecer datos iniciales de catálogo"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-            <span>Restablecer Catálogo Oficial</span>
-          </button>
           <button
             onClick={() => setIsAuthenticated(false)}
             className="px-3.5 py-2.5 bg-[#050505] border border-white/10 text-[10px] uppercase tracking-widest font-bold text-white/50 hover:text-white"
@@ -1006,179 +867,6 @@ export const AdminView: React.FC<AdminViewProps> = ({
           <span className="text-[10px] text-white/40 uppercase tracking-widest block">Consultas / Leads</span>
           <div className="text-2xl font-serif text-white">{inquiries.length} Solicitudes</div>
           <span className="text-[10px] text-rose-400 font-bold uppercase tracking-wider">{pendingInquiriesCount} Por atender</span>
-        </div>
-      </div>
-
-      {/* CLOUD FIRESTORE DATABASE SYNCHRONIZATION HUB */}
-      <div className="bg-[#0c0c0c] border border-white/15 p-5 sm:p-7 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-80 h-80 bg-[#D4AF37]/5 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
-        
-        <div className="relative z-10 space-y-6">
-          {/* Header */}
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-5 border-b border-white/10">
-            <div className="flex items-start gap-3.5">
-              <div className="w-10 h-10 rounded bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-center justify-center text-[#D4AF37] shrink-0 mt-0.5">
-                <Database className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="flex flex-wrap items-center gap-2 mb-1">
-                  <h2 className="text-base sm:text-lg font-serif text-white font-medium">
-                    Base de Datos Cloud Firestore (Google Cloud)
-                  </h2>
-                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-mono uppercase tracking-wider">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                    <span>Conexión Activa</span>
-                  </span>
-                </div>
-                <p className="text-xs text-white/50 max-w-2xl">
-                  Registro permanente de inventario de autos con peritaje e inspección técnica completa, base de datos de clientes CRM, cotizaciones financieras, consultas web y testimonios de compradores.
-                </p>
-              </div>
-            </div>
-
-            {/* Auth status & actions */}
-            <div className="flex flex-wrap items-center gap-3">
-              {user && (
-                <div className="inline-flex items-center gap-2 px-3 py-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs">
-                  <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                  <span className="font-mono text-[11px]">{user.email} (Admin Autorizado)</span>
-                </div>
-              )}
-
-              {/* Botón de Vaciar para Producción */}
-              <button
-                type="button"
-                onClick={handleClearAllForProduction}
-                disabled={isSyncingDb}
-                className="px-4 py-2.5 bg-red-950/40 hover:bg-red-900/60 border border-red-500/40 hover:border-red-500 text-red-300 hover:text-white disabled:opacity-50 text-xs uppercase tracking-wider font-semibold transition-all flex items-center gap-2 shadow-sm"
-                title="Elimina todos los datos demo de prueba y deja la base de datos vacía y lista para cargar autos, clientes y cotizaciones reales"
-              >
-                <Trash2 className="w-3.5 h-3.5 text-red-400" />
-                <span>Vaciar Todo para Producción</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={handleSyncAllToDatabase}
-                disabled={isSyncingDb}
-                className="px-4 py-2.5 bg-[#D4AF37] hover:bg-[#c4a02e] disabled:opacity-50 text-black text-xs uppercase tracking-widest font-bold transition-all shadow-lg shadow-[#D4AF37]/10 flex items-center gap-2"
-              >
-                {isSyncingDb ? (
-                  <>
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    <span>Procesando...</span>
-                  </>
-                ) : (
-                  <>
-                    <CloudUpload className="w-3.5 h-3.5" />
-                    <span>Sincronizar a Firestore</span>
-                  </>
-                )}
-              </button>
-
-              {/* Optional Demo Restore Button */}
-              <button
-                type="button"
-                onClick={handleSeedDemoData}
-                disabled={isSyncingDb}
-                className="px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white/50 hover:text-white text-[10px] uppercase tracking-wider transition-colors"
-                title="Carga datos demo de ejemplo para pruebas"
-              >
-                Cargar Demo (Test)
-              </button>
-            </div>
-          </div>
-
-          {/* Records comparison matrix */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-            <div className="bg-[#050505] border border-white/10 p-3">
-              <div className="text-[10px] text-white/40 uppercase tracking-widest mb-1 flex items-center justify-between">
-                <span>Vehículos</span>
-                <CarFront className="w-3 h-3 text-[#D4AF37]" />
-              </div>
-              <div className="flex items-baseline justify-between">
-                <span className="text-sm font-semibold text-white">{cars.length} en app</span>
-                <span className="text-[11px] font-mono text-emerald-400">
-                  {dbStats ? `${dbStats.carsCount} en BD` : 'Nube activa'}
-                </span>
-              </div>
-            </div>
-
-            <div className="bg-[#050505] border border-white/10 p-3">
-              <div className="text-[10px] text-white/40 uppercase tracking-widest mb-1 flex items-center justify-between">
-                <span>Clientes CRM</span>
-                <Users className="w-3 h-3 text-[#D4AF37]" />
-              </div>
-              <div className="flex items-baseline justify-between">
-                <span className="text-sm font-semibold text-white">{customers.length} en app</span>
-                <span className="text-[11px] font-mono text-emerald-400">
-                  {dbStats ? `${dbStats.customersCount} en BD` : 'Nube activa'}
-                </span>
-              </div>
-            </div>
-
-            <div className="bg-[#050505] border border-white/10 p-3">
-              <div className="text-[10px] text-white/40 uppercase tracking-widest mb-1 flex items-center justify-between">
-                <span>Cotizaciones</span>
-                <FileText className="w-3 h-3 text-[#D4AF37]" />
-              </div>
-              <div className="flex items-baseline justify-between">
-                <span className="text-sm font-semibold text-white">{quotations.length} en app</span>
-                <span className="text-[11px] font-mono text-emerald-400">
-                  {dbStats ? `${dbStats.quotationsCount} en BD` : 'Nube activa'}
-                </span>
-              </div>
-            </div>
-
-            <div className="bg-[#050505] border border-white/10 p-3">
-              <div className="text-[10px] text-white/40 uppercase tracking-widest mb-1 flex items-center justify-between">
-                <span>Consultas</span>
-                <MessageSquare className="w-3 h-3 text-[#D4AF37]" />
-              </div>
-              <div className="flex items-baseline justify-between">
-                <span className="text-sm font-semibold text-white">{inquiries.length} en app</span>
-                <span className="text-[11px] font-mono text-emerald-400">
-                  {dbStats ? `${dbStats.inquiriesCount} en BD` : 'Nube activa'}
-                </span>
-              </div>
-            </div>
-
-            <div className="bg-[#050505] border border-white/10 p-3 col-span-2 sm:col-span-1">
-              <div className="text-[10px] text-white/40 uppercase tracking-widest mb-1 flex items-center justify-between">
-                <span>Reseñas</span>
-                <Star className="w-3 h-3 text-[#D4AF37]" />
-              </div>
-              <div className="flex items-baseline justify-between">
-                <span className="text-sm font-semibold text-white">{reviews.length} en app</span>
-                <span className="text-[11px] font-mono text-emerald-400">
-                  {dbStats ? `${dbStats.reviewsCount} en BD` : 'Nube activa'}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Sync Result Alert */}
-          {syncResult && (
-            <div
-              className={`p-4 border text-xs flex items-start gap-3 transition-all ${
-                syncResult.success
-                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                  : 'bg-amber-500/10 border-amber-500/30 text-amber-300'
-              }`}
-            >
-              {syncResult.success ? (
-                <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
-              ) : (
-                <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
-              )}
-              <div className="space-y-0.5">
-                <p className="font-semibold">{syncResult.message}</p>
-                {syncResult.details && (
-                  <p className="text-white/70 font-mono text-[11px]">{syncResult.details}</p>
-                )}
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
@@ -1273,8 +961,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
                 <button
                   type="button"
                   onClick={handleDeleteAllCars}
-                  disabled={isSyncingDb}
-                  className="px-3 py-2.5 bg-red-950/40 hover:bg-red-900/60 border border-red-500/40 hover:border-red-500 text-red-300 hover:text-white disabled:opacity-50 text-[10px] uppercase font-bold tracking-widest flex items-center gap-1.5 transition-all"
+                  className="px-3 py-2.5 bg-red-950/40 hover:bg-red-900/60 border border-red-500/40 hover:border-red-500 text-red-300 hover:text-white text-[10px] uppercase font-bold tracking-widest flex items-center gap-1.5 transition-all"
                   title="Eliminar todos los vehículos para dejar el catálogo en blanco"
                 >
                   <Trash2 className="w-3.5 h-3.5 text-red-400" />
