@@ -110,15 +110,10 @@ class StorageService {
       doors: Number.isFinite(Number(newCar.doors)) ? Number(newCar.doors) : 4,
       status: newCar.status || 'Disponible'
     };
+    // Firestore es la fuente de verdad: solo confirmar localmente cuando el guardado remoto terminó.
+    await firebaseSync.saveCar(created);
     cars.unshift(created);
     this.saveCars(cars);
-
-    // Guardar en Firestore con confirmación y auto-registro de marca/modelo
-    try {
-      await firebaseSync.saveCar(created);
-    } catch (err) {
-      console.error('Aviso de guardado en Firestore:', err);
-    }
     this.ensureBrandAndModel(created.brand, created.model).catch((err) => console.warn('Auto-register brand notice:', err));
     return created;
   }
@@ -136,34 +131,22 @@ class StorageService {
       status: updatedCar.status || 'Disponible'
     };
     if (index !== -1) {
+      await firebaseSync.saveCar(sanitizedCar);
       cars[index] = sanitizedCar;
       this.saveCars(cars);
-      try {
-        await firebaseSync.saveCar(sanitizedCar);
-      } catch (err) {
-        console.error('Aviso de actualización en Firestore:', err);
-      }
       this.ensureBrandAndModel(sanitizedCar.brand, sanitizedCar.model).catch((err) => console.warn('Auto-register brand notice:', err));
     }
   }
 
   public async deleteCar(id: string): Promise<void> {
+    await firebaseSync.deleteCar(id);
     const cars = this.getCars().filter((c) => c.id !== id);
     this.saveCars(cars);
-    try {
-      await firebaseSync.deleteCar(id);
-    } catch (err) {
-      console.warn('Firebase car delete notice:', err);
-    }
   }
 
   public async deleteAllCars(): Promise<void> {
+    await firebaseSync.deleteAllCars();
     this.saveCars([]);
-    try {
-      await firebaseSync.deleteAllCars();
-    } catch (err) {
-      console.warn('Firebase delete all cars notice:', err);
-    }
   }
 
   // --- REVIEWS ---

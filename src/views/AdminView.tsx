@@ -24,6 +24,7 @@ import { BrandModelSelector } from '../components/BrandModelSelector';
 import { AdminBrandsManager } from '../components/AdminBrandsManager';
 import { AdminTeamManager } from '../components/AdminTeamManager';
 import { processImageFile, exportToCsv } from '../utils/imageUtils';
+import { deleteUploadedCarImages, getSupabaseImagePath, uploadPendingCarImages } from '../utils/carImageStorage';
 import { isUserAdmin, firebaseSync, signInWithEmail, signInWithGoogle, resetPassword, getFirebaseAuthErrorMessage, updateDynamicAdminEmails } from '../firebase';
 import { 
   Lock, 
@@ -356,10 +357,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const handleSaveCar = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSavingCar(true);
-    let finalImages = [...formImages];
-    if (finalImages.length === 0) {
-      finalImages = ['https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?auto=format&fit=crop&w=1200&q=80'];
-    }
+    let uploadedPaths: string[] = [];
 
     const equipmentList = formEquipment
       .split(',')
@@ -376,7 +374,14 @@ export const AdminView: React.FC<AdminViewProps> = ({
       vehicleConditionDisclaimer: formConditionDisclaimer || formInspection.vehicleConditionDisclaimer
     };
 
-    const carPayload: any = {
+    try {
+      const uploadResult = await uploadPendingCarImages(formImages, editingCar?.id);
+      uploadedPaths = uploadResult.uploadedPaths;
+      const finalImages = uploadResult.images.length > 0
+        ? uploadResult.images
+        : ['https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?auto=format&fit=crop&w=1200&q=80'];
+
+      const carPayload: any = {
       title: formTitle,
       brand: formBrand,
       model: formModel,
@@ -410,9 +415,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
       ...(formContactPhone?.trim() ? { contactPhone: formContactPhone.trim() } : {}),
       ...(formConditionDisclaimer?.trim() ? { conditionDisclaimer: formConditionDisclaimer.trim() } : {}),
       ...(Object.keys(synchronizedInspection).length > 0 ? { inspection: synchronizedInspection } : {})
-    };
+      };
 
-    try {
       if (editingCar) {
         const updatedCar: Car = {
           ...editingCar,
@@ -433,11 +437,26 @@ export const AdminView: React.FC<AdminViewProps> = ({
         await storage.addCar(carPayload);
       }
 
+      if (editingCar) {
+        const retained = new Set(finalImages);
+        const removedPaths = editingCar.images
+          .filter((image) => !retained.has(image))
+          .map(getSupabaseImagePath)
+          .filter((path): path is string => Boolean(path));
+        await deleteUploadedCarImages(removedPaths).catch((error) => {
+          console.warn('No se pudieron limpiar imágenes reemplazadas:', error);
+        });
+      }
+
       setShowCarModal(false);
       refreshLocalData();
     } catch (err) {
       console.error('Error al persistir vehículo:', err);
-      alert('Ocurrió un error al persistir el vehículo. Por favor intente nuevamente.');
+      if (uploadedPaths.length > 0) {
+        await deleteUploadedCarImages(uploadedPaths).catch(() => undefined);
+      }
+      const message = err instanceof Error ? err.message : 'Ocurrió un error al guardar el vehículo.';
+      alert(message);
     } finally {
       setIsSavingCar(false);
     }
@@ -445,20 +464,40 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
   const handleDeleteCar = async (id: string, title: string) => {
     if (window.confirm(`¿Confirmás eliminar el vehículo ${title} del inventario?`)) {
-      await storage.deleteCar(id);
-      refreshLocalData();
-      onDataChanged();
+      try {
+        const imagePaths = cars
+          .find((car) => car.id === id)
+          ?.images.map(getSupabaseImagePath)
+          .filter((path): path is string => Boolean(path)) || [];
+        await storage.deleteCar(id);
+        await deleteUploadedCarImages(imagePaths).catch((error) => {
+          console.warn('No se pudieron limpiar las imágenes del vehículo:', error);
+        });
+        refreshLocalData();
+        onDataChanged();
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'No se pudo eliminar el vehículo.';
+        alert(message);
+      }
     }
   };
 
   const handleDeleteAllCars = async () => {
     if (window.confirm('¿Confirmás eliminar TODOS los vehículos del inventario? Esta acción vaciará el catálogo de autos en la base de datos Firestore y en el sistema.')) {
       try {
+        const imagePaths = cars
+          .flatMap((car) => car.images)
+          .map(getSupabaseImagePath)
+          .filter((path): path is string => Boolean(path));
         await storage.deleteAllCars();
+        await deleteUploadedCarImages(imagePaths).catch((error) => {
+          console.warn('No se pudieron limpiar todas las imágenes:', error);
+        });
         refreshLocalData();
         onDataChanged();
       } catch (err: any) {
         console.error('Error al vaciar catálogo:', err);
+        alert(err?.message || 'No se pudo vaciar el catálogo.');
       }
     }
   };
