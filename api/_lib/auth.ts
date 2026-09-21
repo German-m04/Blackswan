@@ -1,9 +1,10 @@
-import firebaseConfig from '../../firebase-applet-config.json';
-
 const DEFAULT_ADMIN_EMAILS = [
   'germanmountrichas@gmail.com',
   'blackswan202614@gmail.com'
 ];
+
+// Es la API key web pública de Firebase; no concede privilegios por sí sola.
+const FIREBASE_WEB_API_KEY = 'AIzaSyCxFNqSL4vY9OR0rh5Na2LGCpdat4iSXvc';
 
 type FirebaseAccount = {
   users?: Array<{ email?: string; localId?: string }>;
@@ -17,7 +18,7 @@ export async function requireAdmin(req: any): Promise<{ email: string; uid: stri
     throw new HttpError(401, 'Falta la sesión de administrador.');
   }
 
-  const apiKey = process.env.FIREBASE_WEB_API_KEY || firebaseConfig.apiKey;
+  const apiKey = process.env.FIREBASE_WEB_API_KEY || FIREBASE_WEB_API_KEY;
   const response = await fetch(
     `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(apiKey)}`,
     {
@@ -52,4 +53,3 @@ export class HttpError extends Error {
     super(message);
   }
 }
-
