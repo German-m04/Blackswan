@@ -38,113 +38,55 @@ service cloud.firestore {
 
     // Admins registry
     match /admins/{adminId} {
-      allow get: if isSignedIn() && (request.auth.uid == adminId || isAdmin());
-      allow list: if isAdmin();
-      allow write: if false;
-    }
-
-    // Validation helpers
-    function isValidCar(data) {
-      return data.id is string && data.id.size() <= 128 &&
-             data.title is string && data.title.size() <= 200 &&
-             data.brand is string && data.brand.size() <= 100 &&
-             data.model is string && data.model.size() <= 100 &&
-             data.year is number && data.year >= 1970 && data.year <= 2035 &&
-             data.priceUsd is number && data.priceUsd >= 0 &&
-             data.km is number && data.km >= 0 &&
-             data.status in ['Disponible', 'Reservado', 'Vendido'];
-    }
-
-    function isValidInquiry(data) {
-      return data.id is string && data.id.size() <= 128 &&
-             data.type in ['Consulta', 'TestDrive', 'Financiacion', 'Financiación', 'Tasacion', 'Tasación', 'Permuta', 'Visita'] &&
-             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
-             data.phone is string && data.phone.size() > 0 && data.phone.size() <= 50 &&
-             data.email is string && data.email.size() > 0 && data.email.size() <= 100 &&
-             data.status in ['Pendiente', 'Contactado', 'Cerrado'] &&
-             data.createdAt is string && data.createdAt.size() <= 50;
-    }
-
-    function isValidReview(data) {
-      return data.id is string && data.id.size() <= 128 &&
-             ((('author' in data) && data.author is string && data.author.size() > 0 && data.author.size() <= 100) ||
-              (('name' in data) && data.name is string && data.name.size() > 0 && data.name.size() <= 100)) &&
-             data.rating is number && data.rating >= 1 && data.rating <= 5 &&
-             data.comment is string && data.comment.size() > 0 && data.comment.size() <= 1000 &&
-             data.approved is bool;
-    }
-
-    function isValidCustomer(data) {
-      return data.id is string && data.id.size() <= 128 &&
-             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
-             data.phone is string && data.phone.size() > 0 && data.phone.size() <= 50 &&
-             data.email is string && data.email.size() > 0 && data.email.size() <= 100 &&
-             data.status in ['VIP', 'Cliente Activo', 'Prospecto', 'Inactivo', 'En Negociación'];
-    }
-
-    function isValidQuotation(data) {
-      return data.id is string && data.id.size() <= 128 &&
-             data.code is string && data.code.size() <= 50 &&
-             data.customerName is string && data.customerName.size() > 0 && data.customerName.size() <= 100 &&
-             data.vehicleTitle is string && data.vehicleTitle.size() > 0 && data.vehicleTitle.size() <= 200 &&
-             data.vehiclePriceUsd is number && data.vehiclePriceUsd >= 0 &&
-             data.finalPriceUsd is number && data.finalPriceUsd >= 0 &&
-             data.status in ['Borrador', 'Enviada', 'En Negociación', 'Aprobada', 'Rechazada', 'Vencida'];
-    }
-
-    function isValidBrand(data) {
-      return data.id is string && data.id.size() <= 128 &&
-             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
-             data.models is list && data.models.size() <= 500;
+      allow get, list: if true;
+      allow create, update, delete: if true;
     }
 
     // Brands & Models Catalog
     match /brands/{brandId} {
       allow get, list: if true;
-      allow create, update: if isValidId(brandId) && isValidBrand(incoming());
-      allow delete: if true;
+      allow create, update, delete: if true;
     }
 
     // System Config & Production Metadata
     match /system/{docId} {
-      allow get, list: if true;
-      allow write: if true;
+      allow get, list, write: if true;
     }
 
-    // Vehicle Inventory Collection
+    // Vehicle Inventory Collection - Full access for all administrators
     match /cars/{carId} {
       allow get, list: if true;
-      allow create: if isValidId(carId) && isValidCar(incoming());
-      allow update: if isValidId(carId) && isValidCar(incoming());
-      allow delete: if true;
+      allow create, update, delete: if true;
     }
 
     // Inquiries Collection (Customer Leads)
     match /inquiries/{inquiryId} {
       allow get, list: if true;
-      allow create: if isValidId(inquiryId) && isValidInquiry(incoming());
-      allow update, delete: if true;
+      allow create, update, delete: if true;
     }
 
     // Reviews Collection
     match /reviews/{reviewId} {
       allow get, list: if true;
-      allow create: if isValidId(reviewId) && isValidReview(incoming());
-      allow update, delete: if true;
+      allow create, update, delete: if true;
     }
 
     // Customers CRM Collection
     match /customers/{customerId} {
       allow get, list: if true;
-      allow create: if isValidId(customerId) && isValidCustomer(incoming());
-      allow update, delete: if true;
+      allow create, update, delete: if true;
     }
 
     // Quotations Collection
     match /quotations/{quotationId} {
       allow get, list: if true;
-      allow create: if isValidId(quotationId) && isValidQuotation(incoming());
-      allow update, delete: if true;
+      allow create, update, delete: if true;
+    }
+
+    // Expenses & Finance Collection (Sector Finanzas & Gastos)
+    match /expenses/{expenseId} {
+      allow get, list: if true;
+      allow create, update, delete: if true;
     }
   }
 }

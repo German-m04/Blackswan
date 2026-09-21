@@ -3,6 +3,10 @@ import {
   getAuth, 
   GoogleAuthProvider, 
   signInWithPopup, 
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
+  updateProfile,
   signOut, 
   onAuthStateChanged,
   User 
@@ -21,7 +25,7 @@ import {
   orderBy
 } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
-import { Car, Review, Inquiry, Customer, Quotation, VehicleBrand } from './types';
+import { Car, Review, Inquiry, Customer, Quotation, VehicleBrand, AdminUser, Expense } from './types';
 import { formatBrandId } from './data/initialBrands';
 import { 
   INITIAL_CARS, 
@@ -112,8 +116,42 @@ export async function signInWithGoogle(): Promise<User | null> {
   try {
     const result = await signInWithPopup(auth, googleProvider);
     return result.user;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Google Sign-In Error:', error);
+    throw error;
+  }
+}
+
+export async function signInWithEmail(email: string, password: string): Promise<User> {
+  try {
+    const credential = await signInWithEmailAndPassword(auth, email.trim(), password);
+    return credential.user;
+  } catch (error: any) {
+    console.error('Email Sign-In Error:', error);
+    throw error;
+  }
+}
+
+export async function signUpWithEmail(email: string, password: string, displayName?: string): Promise<User> {
+  try {
+    const credential = await createUserWithEmailAndPassword(auth, email.trim(), password);
+    if (displayName && displayName.trim()) {
+      await updateProfile(credential.user, {
+        displayName: displayName.trim(),
+      });
+    }
+    return credential.user;
+  } catch (error: any) {
+    console.error('Email Sign-Up Error:', error);
+    throw error;
+  }
+}
+
+export async function resetPassword(email: string): Promise<void> {
+  try {
+    await sendPasswordResetEmail(auth, email.trim());
+  } catch (error: any) {
+    console.error('Password Reset Error:', error);
     throw error;
   }
 }
@@ -128,23 +166,82 @@ export async function logOut(): Promise<void> {
 }
 
 /**
- * Lista explícita y cerrada de correos electrónicos autorizados para el rol de Administrador.
- * Ninguna otra cuenta de Google tendrá acceso al panel de administración.
+ * Traduce códigos de error nativos de Firebase Auth a mensajes claros en español.
  */
-export const AUTHORIZED_ADMIN_EMAILS: readonly string[] = [
+export function getFirebaseAuthErrorMessage(error: any): string {
+  if (!error) return 'Ocurrió un error inesperado al autenticar.';
+  
+  const code = typeof error === 'string' ? error : (error.code || error.message || '');
+
+  switch (code) {
+    case 'auth/invalid-email':
+      return 'El formato de correo electrónico no es válido.';
+    case 'auth/user-not-found':
+      return 'No existe ninguna cuenta registrada con este correo electrónico.';
+    case 'auth/wrong-password':
+    case 'auth/invalid-credential':
+      return 'Credenciales inválidas. Verifica tu correo y contraseña.';
+    case 'auth/email-already-in-use':
+      return 'Ya existe una cuenta registrada con este correo electrónico. Por favor inicia sesión.';
+    case 'auth/weak-password':
+      return 'La contraseña debe tener un mínimo de 6 caracteres.';
+    case 'auth/popup-closed-by-user':
+      return 'La ventana de autenticación de Google se cerró antes de completar el inicio de sesión.';
+    case 'auth/popup-blocked':
+      return 'El navegador bloqueó la ventana emergente de Google. Habilita los popups o inicia sesión con tu correo y contraseña.';
+    case 'auth/unauthorized-domain':
+      return 'Dominio no autorizado para Google Sign-In. Puedes iniciar sesión con correo y contraseña.';
+    case 'auth/operation-not-allowed':
+      return 'Este método de autenticación no está habilitado actualmente en la consola de Firebase.';
+    case 'auth/too-many-requests':
+      return 'Demasiados intentos fallidos. Por seguridad, espera unos minutos o restablece tu contraseña.';
+    case 'auth/network-request-failed':
+      return 'Error de conexión de red. Por favor verifica tu acceso a internet.';
+    case 'auth/requires-recent-login':
+      return 'Esta operación requiere volver a iniciar sesión recientemente por seguridad.';
+    default:
+      if (typeof error.message === 'string' && error.message.length < 150) {
+        return error.message;
+      }
+      return 'No se pudo completar la autenticación. Por favor intenta de nuevo.';
+  }
+}
+
+/**
+ * Correos de administradores principales y sistema dinámico de administradores.
+ * Todos los administradores autorizados tienen exactamente los mismos privilegios completos.
+ */
+export const DEFAULT_ADMIN_EMAILS: readonly string[] = [
   'germanmountrichas@gmail.com',
   'blackswan202614@gmail.com'
 ];
 
+export const AUTHORIZED_ADMIN_EMAILS: readonly string[] = DEFAULT_ADMIN_EMAILS;
 export const ADMIN_EMAILS = AUTHORIZED_ADMIN_EMAILS;
 export const ADMIN_EMAIL = 'germanmountrichas@gmail.com';
 
+const ADMINS_CACHE_KEY = 'blackswan_dynamic_admin_emails_v1';
+let dynamicAdminEmails: string[] = (() => {
+  try {
+    const raw = localStorage.getItem(ADMINS_CACHE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+})();
+
+export function updateDynamicAdminEmails(emails: string[]) {
+  const normalized = emails.map((e) => e.trim().toLowerCase()).filter(Boolean);
+  dynamicAdminEmails = Array.from(new Set([...dynamicAdminEmails, ...normalized]));
+  try {
+    localStorage.setItem(ADMINS_CACHE_KEY, JSON.stringify(dynamicAdminEmails));
+  } catch {}
+}
+
 /**
- * Valida de forma estricta que solo correos electrónicos específicos autorizados
- * puedan acceder al panel de administrador, en lugar de permitir cualquier cuenta de Google.
- *
- * @param user Objeto User de Firebase Authentication (o null)
- * @returns true únicamente si el usuario está autenticado y su correo coincide exactamente con la lista autorizada
+ * Valida si un usuario tiene privilegios completos de Administrador.
+ * Todos los administradores (tanto los predeterminados como los agregados dinámicamente)
+ * comparten exactamente los mismos privilegios para modificar inventario, cotizaciones, CRM, etc.
  */
 export function isUserAdmin(user: User | null): boolean {
   if (!user || !user.email) {
@@ -153,24 +250,61 @@ export function isUserAdmin(user: User | null): boolean {
 
   const userEmail = user.email.trim().toLowerCase();
 
-  // Verifica que el correo esté en la lista cerrada de administradores autorizados
-  return AUTHORIZED_ADMIN_EMAILS.some(
-    (authorizedEmail) => authorizedEmail.trim().toLowerCase() === userEmail
-  );
+  // 1. Verificar correos de administradores predeterminados
+  if (DEFAULT_ADMIN_EMAILS.some((email) => email.trim().toLowerCase() === userEmail)) {
+    return true;
+  }
+
+  // 2. Verificar lista dinámica sincronizada desde Firestore
+  if (dynamicAdminEmails.some((email) => email === userEmail)) {
+    return true;
+  }
+
+  // 3. Verificar listado de administradores en localStorage
+  try {
+    const localAdminsRaw = localStorage.getItem('blackswan_admins_v1');
+    if (localAdminsRaw) {
+      const admins = JSON.parse(localAdminsRaw);
+      if (Array.isArray(admins)) {
+        if (
+          admins.some(
+            (a: any) =>
+              a &&
+              a.email &&
+              a.email.trim().toLowerCase() === userEmail &&
+              a.active !== false
+          )
+        ) {
+          return true;
+        }
+      }
+    }
+  } catch {}
+
+  return false;
 }
 
 /**
- * Deep recursive sanitizer that strips out all `undefined` values from objects and arrays.
- * Cloud Firestore strictly rejects `undefined` (throwing "Unsupported field value: undefined").
+ * Deep recursive sanitizer that strips out all `undefined` values from objects and arrays,
+ * and converts any `NaN` values to 0 so Firestore never rejects writes.
  */
 export function cleanDataForFirestore<T>(input: T): T {
   if (input === null || input === undefined) {
     return null as unknown as T;
   }
+  if (typeof input === 'number' && isNaN(input)) {
+    return 0 as unknown as T;
+  }
   if (Array.isArray(input)) {
     return input
       .filter((item) => item !== undefined)
-      .map((item) => (typeof item === 'object' && item !== null ? cleanDataForFirestore(item) : item)) as unknown as T;
+      .map((item) =>
+        typeof item === 'object' && item !== null
+          ? cleanDataForFirestore(item)
+          : typeof item === 'number' && isNaN(item)
+          ? 0
+          : item
+      ) as unknown as T;
   }
   if (typeof input === 'object') {
     const cleaned: Record<string, any> = {};
@@ -178,6 +312,8 @@ export function cleanDataForFirestore<T>(input: T): T {
       if (value !== undefined) {
         if (typeof value === 'object' && value !== null) {
           cleaned[key] = cleanDataForFirestore(value);
+        } else if (typeof value === 'number' && isNaN(value)) {
+          cleaned[key] = 0;
         } else {
           cleaned[key] = value;
         }
@@ -197,7 +333,7 @@ class FirebaseSyncService {
   public async clearAllDataForProduction(): Promise<{ success: boolean; deletedCount: number; error?: string }> {
     let deletedCount = 0;
     try {
-      const collectionsToClear = ['cars', 'customers', 'quotations', 'inquiries', 'reviews'];
+      const collectionsToClear = ['cars', 'customers', 'quotations', 'inquiries', 'reviews', 'expenses'];
       
       for (const colName of collectionsToClear) {
         try {
@@ -420,8 +556,18 @@ class FirebaseSyncService {
 
   public async saveCar(car: Car): Promise<void> {
     const path = `cars/${car.id}`;
+    // Sanitize numbers to prevent NaN or invalid formats
+    const sanitizedCar: Car = {
+      ...car,
+      priceUsd: Number.isFinite(Number(car.priceUsd)) ? Math.max(0, Number(car.priceUsd)) : 0,
+      priceArs: Number.isFinite(Number(car.priceArs)) ? Math.max(0, Number(car.priceArs)) : 0,
+      km: Number.isFinite(Number(car.km)) ? Math.max(0, Number(car.km)) : 0,
+      year: Number.isFinite(Number(car.year)) ? Number(car.year) : 2024,
+      doors: Number.isFinite(Number(car.doors)) ? Number(car.doors) : 4,
+      status: car.status || 'Disponible'
+    };
     try {
-      await setDoc(doc(db, 'cars', car.id), cleanDataForFirestore(car));
+      await setDoc(doc(db, 'cars', sanitizedCar.id), cleanDataForFirestore(sanitizedCar));
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, path);
     }
@@ -598,6 +744,42 @@ class FirebaseSyncService {
     }
   }
 
+  // --- FINANCES & EXPENSES (Sector Finanzas & Gastos) ---
+  public subscribeExpenses(onUpdate: (expenses: Expense[]) => void) {
+    const path = 'expenses';
+    return onSnapshot(
+      collection(db, path),
+      (snapshot) => {
+        const expList: Expense[] = [];
+        snapshot.forEach((doc) => {
+          expList.push(doc.data() as Expense);
+        });
+        onUpdate(expList);
+      },
+      (error) => {
+        console.warn('Expenses subscription notice:', error);
+      }
+    );
+  }
+
+  public async saveExpense(expense: Expense): Promise<void> {
+    const path = `expenses/${expense.id}`;
+    try {
+      await setDoc(doc(db, 'expenses', expense.id), cleanDataForFirestore(expense));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, path);
+    }
+  }
+
+  public async deleteExpense(id: string): Promise<void> {
+    const path = `expenses/${id}`;
+    try {
+      await deleteDoc(doc(db, 'expenses', id));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, path);
+    }
+  }
+
   // --- BRANDS & MODELS CATALOG ---
   public subscribeBrands(onUpdate: (brands: VehicleBrand[]) => void) {
     const path = 'brands';
@@ -645,6 +827,15 @@ class FirebaseSyncService {
     }
   }
 
+  public async deleteBrand(brandId: string): Promise<void> {
+    const path = `brands/${brandId}`;
+    try {
+      await deleteDoc(doc(db, 'brands', brandId));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, path);
+    }
+  }
+
   public async ensureBrandAndModel(brandName: string, modelName?: string): Promise<VehicleBrand | null> {
     const trimmedBrand = brandName.trim();
     if (!trimmedBrand) return null;
@@ -686,6 +877,68 @@ class FirebaseSyncService {
     } catch (err) {
       console.warn('ensureBrandAndModel notice:', err);
       return null;
+    }
+  }
+
+  // --- ADMINISTRATORS MANAGEMENT (Equal Privileges) ---
+  public subscribeAdmins(onUpdate: (admins: AdminUser[]) => void) {
+    const path = 'admins';
+    return onSnapshot(
+      collection(db, path),
+      (snapshot) => {
+        const adminList: AdminUser[] = [];
+        snapshot.forEach((doc) => {
+          adminList.push(doc.data() as AdminUser);
+        });
+        updateDynamicAdminEmails(adminList.map((a) => a.email));
+        onUpdate(adminList);
+      },
+      (error) => {
+        console.warn('Admins onSnapshot warning:', error.message);
+      }
+    );
+  }
+
+  public async getAdmins(): Promise<AdminUser[]> {
+    const path = 'admins';
+    try {
+      const snap = await getDocs(collection(db, path));
+      const list: AdminUser[] = [];
+      snap.forEach((doc) => {
+        list.push(doc.data() as AdminUser);
+      });
+      updateDynamicAdminEmails(list.map((a) => a.email));
+      return list;
+    } catch (err) {
+      console.warn('Error fetching admins from Firestore:', err);
+      return [];
+    }
+  }
+
+  public async saveAdmin(admin: AdminUser): Promise<void> {
+    const docId = admin.id || admin.email.toLowerCase().replace(/[^a-z0-9]/g, '_');
+    const path = `admins/${docId}`;
+    try {
+      const payload: AdminUser = {
+        ...admin,
+        id: docId,
+        email: admin.email.trim().toLowerCase(),
+        name: admin.name.trim() || admin.email.split('@')[0],
+        active: admin.active !== false
+      };
+      await setDoc(doc(db, 'admins', docId), cleanDataForFirestore(payload));
+      updateDynamicAdminEmails([payload.email]);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, path);
+    }
+  }
+
+  public async deleteAdmin(adminId: string): Promise<void> {
+    const path = `admins/${adminId}`;
+    try {
+      await deleteDoc(doc(db, 'admins', adminId));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, path);
     }
   }
 }

@@ -461,15 +461,15 @@ export const CatalogView: React.FC<CatalogViewProps> = ({ cars, onSelectCar, ini
         </p>
 
         {/* Quick Shortcut Pills */}
-        <div className="pt-3 flex items-center gap-2 overflow-x-auto scrollbar-none">
-          <span className="text-[10px] uppercase font-mono tracking-widest text-white/40 shrink-0 mr-1">
+        <div className="pt-3 flex items-center gap-2 overflow-x-auto scrollbar-none py-2 px-1 -mx-1">
+          <span className="text-[10px] uppercase font-mono tracking-widest text-white/40 shrink-0 mr-1 select-none">
             Accesos rápidos:
           </span>
           <button
             onClick={() => handleQuickShortcut('all')}
-            className={`px-3 py-1 text-[10px] uppercase font-bold tracking-wider rounded-none border shrink-0 transition-all ${
+            className={`px-3 py-1 text-[10px] uppercase font-bold tracking-wider rounded-full border shrink-0 transition-all focus:outline-none select-none ${
               activeShortcut === 'all' && activeFilters.length === 0
-                ? 'bg-[#D4AF37] text-black border-[#D4AF37]'
+                ? 'bg-[#D4AF37] text-black border-[#D4AF37] shadow-sm'
                 : 'bg-white/5 border-white/10 text-white/70 hover:border-white/30 hover:text-white'
             }`}
           >
@@ -477,9 +477,9 @@ export const CatalogView: React.FC<CatalogViewProps> = ({ cars, onSelectCar, ini
           </button>
           <button
             onClick={() => handleQuickShortcut('featured')}
-            className={`px-3 py-1 text-[10px] uppercase font-bold tracking-wider rounded-none border shrink-0 transition-all ${
+            className={`px-3 py-1 text-[10px] uppercase font-bold tracking-wider rounded-full border shrink-0 transition-all focus:outline-none select-none ${
               activeShortcut === 'featured' || onlyFeatured
-                ? 'bg-[#D4AF37] text-black border-[#D4AF37]'
+                ? 'bg-[#D4AF37] text-black border-[#D4AF37] shadow-sm'
                 : 'bg-white/5 border-white/10 text-white/70 hover:border-white/30 hover:text-white'
             }`}
           >
@@ -487,9 +487,9 @@ export const CatalogView: React.FC<CatalogViewProps> = ({ cars, onSelectCar, ini
           </button>
           <button
             onClick={() => handleQuickShortcut('under-30k')}
-            className={`px-3 py-1 text-[10px] uppercase font-bold tracking-wider rounded-none border shrink-0 transition-all ${
+            className={`px-3 py-1 text-[10px] uppercase font-bold tracking-wider rounded-full border shrink-0 transition-all focus:outline-none select-none ${
               activeShortcut === 'under-30k'
-                ? 'bg-[#D4AF37] text-black border-[#D4AF37]'
+                ? 'bg-[#D4AF37] text-black border-[#D4AF37] shadow-sm'
                 : 'bg-white/5 border-white/10 text-white/70 hover:border-white/30 hover:text-white'
             }`}
           >
@@ -497,9 +497,9 @@ export const CatalogView: React.FC<CatalogViewProps> = ({ cars, onSelectCar, ini
           </button>
           <button
             onClick={() => handleQuickShortcut('low-km')}
-            className={`px-3 py-1 text-[10px] uppercase font-bold tracking-wider rounded-none border shrink-0 transition-all ${
+            className={`px-3 py-1 text-[10px] uppercase font-bold tracking-wider rounded-full border shrink-0 transition-all focus:outline-none select-none ${
               activeShortcut === 'low-km'
-                ? 'bg-[#D4AF37] text-black border-[#D4AF37]'
+                ? 'bg-[#D4AF37] text-black border-[#D4AF37] shadow-sm'
                 : 'bg-white/5 border-white/10 text-white/70 hover:border-white/30 hover:text-white'
             }`}
           >
@@ -507,9 +507,9 @@ export const CatalogView: React.FC<CatalogViewProps> = ({ cars, onSelectCar, ini
           </button>
           <button
             onClick={() => handleQuickShortcut('new-years')}
-            className={`px-3 py-1 text-[10px] uppercase font-bold tracking-wider rounded-none border shrink-0 transition-all ${
+            className={`px-3 py-1 text-[10px] uppercase font-bold tracking-wider rounded-full border shrink-0 transition-all focus:outline-none select-none ${
               activeShortcut === 'new-years'
-                ? 'bg-[#D4AF37] text-black border-[#D4AF37]'
+                ? 'bg-[#D4AF37] text-black border-[#D4AF37] shadow-sm'
                 : 'bg-white/5 border-white/10 text-white/70 hover:border-white/30 hover:text-white'
             }`}
           >
@@ -517,9 +517,9 @@ export const CatalogView: React.FC<CatalogViewProps> = ({ cars, onSelectCar, ini
           </button>
           <button
             onClick={() => handleQuickShortcut('suv')}
-            className={`px-3 py-1 text-[10px] uppercase font-bold tracking-wider rounded-none border shrink-0 transition-all ${
+            className={`px-3 py-1 text-[10px] uppercase font-bold tracking-wider rounded-full border shrink-0 transition-all focus:outline-none select-none ${
               activeShortcut === 'suv'
-                ? 'bg-[#D4AF37] text-black border-[#D4AF37]'
+                ? 'bg-[#D4AF37] text-black border-[#D4AF37] shadow-sm'
                 : 'bg-white/5 border-white/10 text-white/70 hover:border-white/30 hover:text-white'
             }`}
           >
@@ -527,9 +527,9 @@ export const CatalogView: React.FC<CatalogViewProps> = ({ cars, onSelectCar, ini
           </button>
           <button
             onClick={() => handleQuickShortcut('hybrid')}
-            className={`px-3 py-1 text-[10px] uppercase font-bold tracking-wider rounded-none border shrink-0 transition-all ${
+            className={`px-3 py-1 text-[10px] uppercase font-bold tracking-wider rounded-full border shrink-0 transition-all focus:outline-none select-none ${
               activeShortcut === 'hybrid'
-                ? 'bg-[#D4AF37] text-black border-[#D4AF37]'
+                ? 'bg-[#D4AF37] text-black border-[#D4AF37] shadow-sm'
                 : 'bg-white/5 border-white/10 text-white/70 hover:border-white/30 hover:text-white'
             }`}
           >

@@ -80,14 +80,14 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Desktop Nav Links (Hidden in Admin Tab) */}
         {currentTab !== 'admin' && (
-          <nav className="hidden md:flex items-center space-x-6">
+          <nav className="hidden md:flex items-center space-x-7">
             {navItems.map((item) => {
               const isActive = currentTab === item.id;
               return (
                 <button
                   key={item.id}
                   onClick={() => handleItemClick(item.id)}
-                  className={`text-[11px] uppercase tracking-[0.2em] transition-all relative py-1 flex items-center gap-1.5 ${
+                  className={`text-[10px] uppercase font-mono tracking-[0.24em] transition-all relative py-1 flex items-center gap-1.5 cursor-pointer ${
                     isActive
                       ? 'text-[#D4AF37] font-semibold border-b border-[#D4AF37]'
                       : 'text-white/60 hover:text-white'
@@ -95,7 +95,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 >
                   <span>{item.label}</span>
                   {item.badge !== undefined && (
-                    <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-mono ${
+                    <span className={`text-[9px] px-1.5 py-0.2 rounded-none font-mono ${
                       isActive ? 'bg-[#D4AF37] text-black font-bold' : 'bg-white/10 text-white/70'
                     }`}>
                       {item.badge}
@@ -112,7 +112,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div className="hidden sm:flex items-center gap-3 sm:gap-4">
             <button
               onClick={() => handleItemClick('home')}
-              className="px-3.5 py-2.5 bg-[#050505] hover:bg-white/5 border border-white/10 hover:border-[#D4AF37]/40 text-[10px] uppercase tracking-widest font-bold text-white/70 hover:text-white transition-colors flex items-center gap-1.5"
+              className="btn-dark-textured px-3.5 py-2 rounded-lg text-[9.5px] font-mono uppercase tracking-[0.2em] font-medium text-white/70 hover:text-white transition-colors flex items-center gap-1.5 cursor-pointer"
               title="Volver a la tienda web pública"
             >
               <ArrowLeft className="w-3.5 h-3.5 text-[#D4AF37]" />
@@ -121,14 +121,14 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             {user && (
               <div className="text-right hidden md:block">
-                <div className="text-[9px] text-white/50 uppercase tracking-widest font-mono">Conectado como</div>
-                <div className="text-xs text-[#D4AF37] font-semibold">{user.email}</div>
+                <div className="text-[8px] text-white/50 uppercase tracking-[0.2em] font-mono">Conectado como</div>
+                <div className="text-xs text-[#D4AF37] font-serif font-light">{user.email}</div>
               </div>
             )}
 
             <button
               onClick={onSignOut}
-              className="px-3.5 py-2.5 bg-[#050505] border border-white/10 text-[10px] uppercase tracking-widest font-bold text-white/50 hover:text-white transition-colors"
+              className="btn-dark-textured px-3.5 py-2 rounded-lg text-[9.5px] font-mono uppercase tracking-[0.2em] font-medium text-white/50 hover:text-white transition-colors cursor-pointer"
             >
               Cerrar Sesión
             </button>
@@ -136,80 +136,73 @@ export const Navbar: React.FC<NavbarProps> = ({
         ) : (
           <div className="hidden lg:flex items-center gap-3">
             {user ? (
-              <div className="flex items-center gap-2.5 px-3 py-1.5 bg-white/5 border border-white/10 rounded-none">
-              {user.photoURL ? (
-                <img 
-                  src={user.photoURL} 
-                  alt={user.displayName || 'Usuario'} 
-                  className="w-6 h-6 rounded-full object-cover border border-white/20"
-                  referrerPolicy="no-referrer"
-                />
-              ) : (
-                <UserIcon className="w-4 h-4 text-[#D4AF37]" />
-              )}
-              <div className="flex flex-col text-left">
-                <span className="text-[10px] text-white/90 font-medium leading-none truncate max-w-[120px]">
-                  {user.displayName || user.email?.split('@')[0]}
-                </span>
-                {isAdmin ? (
-                  <span className="text-[8px] text-[#D4AF37] uppercase font-bold tracking-wider">
-                    Admin
-                  </span>
+              <div className="flex items-center gap-2.5 px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg">
+                {user.photoURL ? (
+                  <img 
+                    src={user.photoURL} 
+                    alt={user.displayName || 'Usuario'} 
+                    className="w-6 h-6 rounded-full object-cover border border-white/20"
+                    referrerPolicy="no-referrer"
+                  />
                 ) : (
-                  <span className="text-[8px] text-white/40 uppercase tracking-wider">
-                    Usuario
-                  </span>
+                  <UserIcon className="w-4 h-4 text-[#D4AF37]" />
                 )}
-              </div>
-              {isAdmin && (
+                <div className="flex flex-col text-left">
+                  <span className="text-[10px] text-white/90 font-medium leading-none truncate max-w-[120px]">
+                    {user.displayName || user.email?.split('@')[0]}
+                  </span>
+                  {isAdmin ? (
+                    <span className="text-[8px] text-[#D4AF37] uppercase font-mono tracking-wider">
+                      Admin
+                    </span>
+                  ) : (
+                    <span className="text-[8px] text-white/40 uppercase font-mono tracking-wider">
+                      Usuario
+                    </span>
+                  )}
+                </div>
+                {isAdmin && (
+                  <button
+                    onClick={() => onNavigate('admin')}
+                    className="p-1 text-[#D4AF37] hover:text-white transition-colors ml-1 cursor-pointer"
+                    title="Panel de Administración"
+                  >
+                    <ShieldCheck className="w-4 h-4" />
+                  </button>
+                )}
                 <button
-                  onClick={() => onNavigate('admin')}
-                  className="p-1 text-[#D4AF37] hover:text-white transition-colors ml-1"
-                  title="Panel de Administración"
+                  onClick={onSignOut}
+                  className="p-1 text-white/40 hover:text-rose-400 transition-colors ml-0.5 cursor-pointer"
+                  title="Cerrar sesión"
                 >
-                  <ShieldCheck className="w-4 h-4" />
+                  <LogOut className="w-3.5 h-3.5" />
                 </button>
-              )}
+              </div>
+            ) : (
+              /* Unified authentication trigger */
               <button
-                onClick={onSignOut}
-                className="p-1 text-white/40 hover:text-rose-400 transition-colors ml-0.5"
-                title="Cerrar sesión"
+                onClick={() => {
+                  if (onSignIn) onSignIn();
+                }}
+                className="btn-dark-textured px-3.5 py-2 rounded-lg text-white hover:text-[#D4AF37] text-[9.5px] font-mono uppercase tracking-[0.2em] flex items-center gap-1.5 cursor-pointer"
+                title="Ingresar a tu cuenta o Panel de Administración"
               >
-                <LogOut className="w-3.5 h-3.5" />
+                <LogIn className="w-3.5 h-3.5 text-[#D4AF37]" />
+                <span>Ingresar</span>
               </button>
-            </div>
-          ) : (
-            /* Single unified button fulfilling both admin & Google sign-in */
-            <button
-              onClick={async () => {
-                onNavigate('admin');
-                if (onSignIn) {
-                  try {
-                    await onSignIn();
-                  } catch (err) {
-                    console.log('Sign-in processed', err);
-                  }
-                }
-              }}
-              className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/15 hover:border-[#D4AF37] text-white hover:text-[#D4AF37] text-[10px] uppercase font-semibold tracking-wider transition-all flex items-center gap-1.5"
-              title="Ingresar y acceder al Panel de Administración"
-            >
-              <LogIn className="w-3.5 h-3.5 text-[#D4AF37]" />
-              <span>Ingresar</span>
-            </button>
-          )}
+            )}
 
-          {currentTab !== 'admin' && (
-            <button
-              onClick={() => handleItemClick('contact')}
-              className="px-5 py-2.5 bg-[#D4AF37] hover:bg-[#c4a02e] text-black text-[10px] uppercase font-bold tracking-widest transition-all flex items-center gap-2 shadow-[0_0_15px_rgba(212,175,55,0.2)]"
-            >
-              <span>Tasá tu Usado</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
-      )}
+            {currentTab !== 'admin' && (
+              <button
+                onClick={() => handleItemClick('contact')}
+                className="btn-gold-textured px-5 py-2 rounded-lg text-[10px] uppercase font-semibold tracking-[0.2em] flex items-center gap-1.5 cursor-pointer"
+              >
+                <span>Tasá tu Usado</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Mobile Hamburger Toggle */}
         <div className="flex items-center gap-2 md:hidden">
@@ -230,14 +223,14 @@ export const Navbar: React.FC<NavbarProps> = ({
             <div className="space-y-3">
               <button
                 onClick={() => handleItemClick('home')}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#050505] border border-white/10 hover:border-[#D4AF37]/40 text-white text-xs uppercase font-bold tracking-widest transition-colors"
+                className="btn-dark-textured w-full flex items-center justify-center gap-2 px-4 py-3 text-white text-xs uppercase font-bold tracking-widest transition-colors rounded-lg"
               >
                 <ArrowLeft className="w-4 h-4 text-[#D4AF37]" />
                 <span>Volver a la Web</span>
               </button>
 
               {user && (
-                <div className="p-3 bg-[#0a0a0a] border border-white/10 text-left">
+                <div className="p-3 bg-[#0a0a0a] border border-white/10 text-left rounded-lg">
                   <div className="text-[10px] text-white/50 uppercase tracking-widest font-mono">Conectado como</div>
                   <div className="text-xs text-[#D4AF37] font-semibold truncate">{user.email}</div>
                 </div>
@@ -248,7 +241,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   setMobileMenuOpen(false);
                   onSignOut();
                 }}
-                className="w-full py-3 bg-[#050505] border border-white/10 text-xs uppercase tracking-widest font-bold text-white/60 hover:text-white transition-colors text-center"
+                className="btn-dark-textured w-full py-3 text-xs uppercase tracking-widest font-bold text-white/60 hover:text-white transition-colors text-center rounded-lg"
               >
                 Cerrar Sesión
               </button>
@@ -284,7 +277,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               {/* Mobile Auth & Admin Entry - Single Unified Button */}
               <div className="pt-2">
                 {user ? (
-                  <div className="flex items-center justify-between p-3 bg-white/5 border border-white/10 text-xs">
+                  <div className="flex items-center justify-between p-3 bg-white/5 border border-white/10 text-xs rounded-lg">
                     <div className="flex items-center gap-2 text-left">
                       {user.photoURL ? (
                         <img 
@@ -322,18 +315,11 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </div>
                 ) : (
                   <button
-                    onClick={async () => {
-                      onNavigate('admin');
+                    onClick={() => {
                       setMobileMenuOpen(false);
-                      if (onSignIn) {
-                        try {
-                          await onSignIn();
-                        } catch (err) {
-                          console.log('Mobile sign-in processed', err);
-                        }
-                      }
+                      if (onSignIn) onSignIn();
                     }}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-3.5 border border-[#D4AF37]/40 bg-white/5 text-white hover:text-[#D4AF37] text-xs uppercase tracking-wider font-semibold transition-all"
+                    className="btn-dark-textured w-full flex items-center justify-center gap-2 px-4 py-3.5 text-white hover:text-[#D4AF37] text-xs uppercase tracking-wider font-semibold rounded-lg cursor-pointer"
                   >
                     <LogIn className="w-4 h-4 text-[#D4AF37]" />
                     <span>Ingresar</span>

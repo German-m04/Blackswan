@@ -120,7 +120,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({ cars, onSelectCar })
 
   return (
     <div 
-      className="relative rounded-none border border-white/10 bg-[#050505] overflow-hidden group flex flex-col justify-between"
+      className="relative rounded-2xl border border-white/10 bg-[#050505] overflow-hidden group flex flex-col justify-between shadow-2xl"
       onMouseEnter={() => setIsAutoPlaying(false)}
       onMouseLeave={() => setIsAutoPlaying(true)}
       onTouchStart={onTouchStart}
@@ -148,7 +148,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({ cars, onSelectCar })
             className="w-full h-full grid grid-cols-1 lg:grid-cols-12 items-center p-4 sm:p-8 lg:p-10 gap-6 lg:gap-8"
           >
             {/* Image Box - First on Mobile, Right on Desktop */}
-            <div className="order-1 lg:order-2 lg:col-span-7 h-[220px] sm:h-[320px] lg:h-[380px] relative overflow-hidden border border-white/10 group/img cursor-pointer" onClick={() => onSelectCar(currentCar)}>
+            <div className="order-1 lg:order-2 lg:col-span-7 h-[220px] sm:h-[320px] lg:h-[380px] relative overflow-hidden border border-white/10 group/img cursor-pointer rounded-xl" onClick={() => onSelectCar(currentCar)}>
               <img
                 src={currentCar.images[0] || 'https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?auto=format&fit=crop&w=1200&q=80'}
                 alt={currentCar.title}
@@ -157,7 +157,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({ cars, onSelectCar })
               <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-transparent to-black/30" />
 
               {/* Photo Count Badge overlay */}
-              <div className="absolute bottom-3 right-3 bg-black/80 backdrop-blur-md px-2.5 py-1 border border-white/10 text-[9px] sm:text-[10px] text-white/70 uppercase tracking-wider flex items-center gap-1">
+              <div className="absolute bottom-3 right-3 bg-black/80 backdrop-blur-md px-2.5 py-1 border border-white/10 text-[9px] sm:text-[10px] text-white/70 uppercase tracking-wider flex items-center gap-1 rounded-full">
                 <Eye className="w-3 h-3 text-[#D4AF37]" />
                 <span>{currentCar.images.length} fotos</span>
               </div>
@@ -165,7 +165,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({ cars, onSelectCar })
               {/* Navigation Arrows Positioned Over Image Container */}
               <button
                 onClick={(e) => { e.stopPropagation(); handlePrev(); }}
-                className="absolute left-2 top-1/2 -translate-y-1/2 z-20 w-8 h-8 sm:w-10 sm:h-10 bg-black/75 hover:bg-[#D4AF37] hover:text-black text-white border border-white/20 backdrop-blur-md flex items-center justify-center transition-all shadow-lg"
+                className="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 sm:w-11 sm:h-11 bg-black/80 hover:bg-[#D4AF37] hover:text-black text-white border border-white/20 backdrop-blur-md flex items-center justify-center transition-all shadow-lg rounded-full cursor-pointer"
                 aria-label="Anterior vehículo"
               >
                 <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -173,7 +173,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({ cars, onSelectCar })
 
               <button
                 onClick={(e) => { e.stopPropagation(); handleNext(); }}
-                className="absolute right-2 top-1/2 -translate-y-1/2 z-20 w-8 h-8 sm:w-10 sm:h-10 bg-black/75 hover:bg-[#D4AF37] hover:text-black text-white border border-white/20 backdrop-blur-md flex items-center justify-center transition-all shadow-lg"
+                className="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 sm:w-11 sm:h-11 bg-black/80 hover:bg-[#D4AF37] hover:text-black text-white border border-white/20 backdrop-blur-md flex items-center justify-center transition-all shadow-lg rounded-full cursor-pointer"
                 aria-label="Siguiente vehículo"
               >
                 <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -183,52 +183,52 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({ cars, onSelectCar })
             {/* Car Information Details - Second on Mobile, Left on Desktop */}
             <div className="order-2 lg:order-1 lg:col-span-5 flex flex-col justify-center space-y-4">
               <div>
-                <span className="text-[10px] uppercase font-mono tracking-widest text-[#D4AF37] block mb-1">
-                  {currentCar.brand}
+                <span className="text-[9px] uppercase font-mono tracking-[0.3em] text-[#D4AF37] block mb-1.5">
+                  {currentCar.brand} • Modelo Seleccionado
                 </span>
                 <h2 
                   onClick={() => onSelectCar(currentCar)}
-                  className="text-xl sm:text-3xl lg:text-4xl font-serif text-white group-hover:text-[#D4AF37] transition-colors cursor-pointer leading-tight font-light"
+                  className="text-2xl sm:text-3xl lg:text-4xl font-serif text-white group-hover:text-[#D4AF37] transition-colors cursor-pointer leading-tight font-light tracking-wide"
                 >
                   {currentCar.title}
                 </h2>
-                <div className="mt-1.5 text-xl sm:text-2xl font-serif text-[#D4AF37] font-medium">
+                <div className="mt-2 text-2xl sm:text-3xl font-serif text-[#D4AF37] font-normal tracking-tight">
                   {formatPriceUsd(currentCar.priceUsd)}
                 </div>
               </div>
 
               {/* Specs Grid */}
-              <div className="grid grid-cols-3 gap-1.5 sm:gap-2 py-2 border-y border-white/10 text-[10px] sm:text-[11px] text-white/70">
-                <div className="flex items-center gap-1.5 sm:gap-2 bg-white/5 p-2 border border-white/5">
+              <div className="grid grid-cols-3 gap-1.5 sm:gap-2 py-2.5 border-y border-white/10 text-[10px] sm:text-[11px] text-white/70">
+                <div className="flex items-center gap-2 bg-white/5 p-2.5 border border-white/5 rounded-lg">
                   <Calendar className="w-3.5 h-3.5 text-[#D4AF37] shrink-0" />
                   <div className="min-w-0">
-                    <span className="text-[8px] sm:text-[9px] text-white/40 block uppercase">Año</span>
-                    <span className="font-semibold text-white truncate block">{currentCar.year}</span>
+                    <span className="text-[8px] sm:text-[9px] text-white/40 block uppercase font-mono">Año</span>
+                    <span className="font-mono text-white truncate block">{currentCar.year}</span>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1.5 sm:gap-2 bg-white/5 p-2 border border-white/5">
+                <div className="flex items-center gap-2 bg-white/5 p-2.5 border border-white/5 rounded-lg">
                   <Gauge className="w-3.5 h-3.5 text-[#D4AF37] shrink-0" />
                   <div className="min-w-0">
-                    <span className="text-[8px] sm:text-[9px] text-white/40 block uppercase">KM</span>
-                    <span className="font-semibold text-white truncate block">{formatKm(currentCar.km)}</span>
+                    <span className="text-[8px] sm:text-[9px] text-white/40 block uppercase font-mono">Uso</span>
+                    <span className="font-mono text-white truncate block">{formatKm(currentCar.km)}</span>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1.5 sm:gap-2 bg-white/5 p-2 border border-white/5">
+                <div className="flex items-center gap-2 bg-white/5 p-2.5 border border-white/5 rounded-lg">
                   <Zap className="w-3.5 h-3.5 text-[#D4AF37] shrink-0" />
                   <div className="min-w-0">
-                    <span className="text-[8px] sm:text-[9px] text-white/40 block uppercase">Caja</span>
-                    <span className="font-semibold text-white truncate block">{currentCar.transmission}</span>
+                    <span className="text-[8px] sm:text-[9px] text-white/40 block uppercase font-mono">Transmisión</span>
+                    <span className="text-white truncate block">{currentCar.transmission}</span>
                   </div>
                 </div>
               </div>
 
-              {/* Action Buttons */}
+      {/* Action Buttons */}
               <div className="flex flex-col sm:flex-row gap-2.5 pt-1">
                 <button
                   onClick={() => onSelectCar(currentCar)}
-                  className="w-full sm:w-auto px-5 py-2.5 text-[10px] uppercase font-bold tracking-[0.15em] text-black bg-[#D4AF37] hover:bg-[#c4a02e] transition-all flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(212,175,55,0.2)]"
+                  className="btn-gold-textured w-full sm:w-auto px-6 py-2.5 text-[10px] uppercase font-semibold tracking-[0.18em] flex items-center justify-center gap-2 cursor-pointer rounded-lg"
                 >
                   <Eye className="w-3.5 h-3.5" />
                   <span>Ver Ficha Técnica</span>
@@ -238,7 +238,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({ cars, onSelectCar })
                   href={`https://wa.me/5491140008888?text=${whatsappMessage}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full sm:w-auto px-4 py-2.5 text-[10px] uppercase font-bold tracking-[0.15em] text-white bg-white/5 hover:bg-white/10 border border-white/20 transition-all flex items-center justify-center gap-2"
+                  className="btn-dark-textured w-full sm:w-auto px-5 py-2.5 text-[10px] uppercase font-medium tracking-[0.18em] flex items-center justify-center gap-2 rounded-lg"
                 >
                   <MessageCircle className="w-3.5 h-3.5 text-[#D4AF37]" />
                   <span>Consultar</span>

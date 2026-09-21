@@ -3,26 +3,184 @@
 @layer base {
   body {
     background-color: #050505;
-    color: #e0e0e0;
-    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    color: #e5e5e5;
+    font-family: 'Outfit', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    letter-spacing: -0.01em;
   }
 
   h1, h2, h3, h4, .font-serif {
-    font-family: 'Cinzel', 'Playfair Display', Georgia, serif;
+    font-family: 'Bodoni Moda', 'Cormorant Garamond', Georgia, serif;
+    letter-spacing: -0.01em;
+  }
+
+  .font-caps {
+    font-family: 'Cinzel', Georgia, serif;
+  }
+
+  button {
+    outline: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  button:focus {
+    outline: none;
+  }
+
+  button:focus-visible {
+    outline: 2px solid rgba(212, 175, 55, 0.7);
+    outline-offset: 2px;
   }
 }
 
-/* Custom Gold Accent Utilities & Glassmorphism */
+/* Custom Gold Accent Utilities & Luxury Finishes */
 .gold-gradient {
   background: linear-gradient(135deg, #D4AF37 0%, #F3E5AB 50%, #AA7C11 100%);
 }
 
 .gold-border-glow {
-  box-shadow: 0 0 20px -5px rgba(212, 175, 55, 0.2);
+  box-shadow: 0 0 25px -5px rgba(212, 175, 55, 0.25);
 }
 
 .gold-text-gradient {
-  background: linear-gradient(135deg, #FFF 0%, #D4AF37 60%, #AA7C11 100%);
+  background: linear-gradient(135deg, #FFF 0%, #E8D390 50%, #D4AF37 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
+
+/* Textured Buttons with Rounded Corners */
+.btn-gold-textured {
+  background: linear-gradient(180deg, #F5E197 0%, #D4AF37 40%, #B89020 100%);
+  color: #070707;
+  border-radius: 0.65rem;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow: 
+    inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.65),
+    inset 0 -2px 3px 0 rgba(0, 0, 0, 0.28),
+    0 4px 14px -2px rgba(212, 175, 55, 0.38);
+  position: relative;
+  overflow: hidden;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  font-weight: 600;
+}
+
+.btn-gold-textured::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.38), transparent 70%);
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+.btn-gold-textured:hover {
+  background: linear-gradient(180deg, #FAF0BF 0%, #DFBE55 40%, #C49C28 100%);
+  box-shadow: 
+    inset 0 1px 2px 0 rgba(255, 255, 255, 0.85),
+    inset 0 -2px 4px 0 rgba(0, 0, 0, 0.35),
+    0 6px 20px -1px rgba(212, 175, 55, 0.55);
+  transform: translateY(-1px);
+}
+
+.btn-gold-textured:active {
+  transform: translateY(1px);
+  box-shadow: 
+    inset 0 2px 4px 0 rgba(0, 0, 0, 0.35),
+    0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.btn-dark-textured {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.09) 0%, rgba(255, 255, 255, 0.03) 45%, rgba(0, 0, 0, 0.45) 100%);
+  color: rgba(255, 255, 255, 0.88);
+  border-radius: 0.65rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.16),
+    inset 0 -1px 2px 0 rgba(0, 0, 0, 0.5),
+    0 3px 8px rgba(0, 0, 0, 0.35);
+  position: relative;
+  overflow: hidden;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-dark-textured::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.08), transparent 70%);
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+.btn-dark-textured:hover {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.05) 45%, rgba(0, 0, 0, 0.55) 100%);
+  border-color: rgba(212, 175, 55, 0.5);
+  color: #ffffff;
+  box-shadow: 
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.28),
+    0 4px 14px rgba(0, 0, 0, 0.5);
+  transform: translateY(-1px);
+}
+
+.btn-dark-textured:active {
+  transform: translateY(1px);
+}
+
+.btn-pill-textured {
+  border-radius: 9999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.07) 0%, rgba(0, 0, 0, 0.35) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  transition: all 0.2s ease;
+  outline: none;
+  user-select: none;
+}
+
+.btn-pill-textured:hover {
+  border-color: rgba(212, 175, 55, 0.4);
+  color: #ffffff;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, rgba(0, 0, 0, 0.4) 100%);
+}
+
+.btn-pill-active {
+  border-radius: 9999px;
+  background: linear-gradient(180deg, #F3DE8A 0%, #D4AF37 40%, #B89020 100%);
+  color: #000000;
+  font-weight: 600;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.7),
+    0 2px 8px rgba(212, 175, 55, 0.3);
+  outline: none;
+  user-select: none;
+}
+
+/* Entry Animations */
+@keyframes fadeInUp {
+  0% {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.75s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Subtle Continuous Float Animation (5px vertical movement) */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+

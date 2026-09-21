@@ -13,6 +13,7 @@ import { ContactView } from './views/ContactView';
 import { AdminView } from './views/AdminView';
 import { CarDetailModal } from './components/CarDetailModal';
 import { FloatingWhatsApp } from './components/FloatingWhatsApp';
+import { AuthModal } from './components/AuthModal';
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState<string>('home');
@@ -22,6 +23,8 @@ export default function App() {
   const [selectedCar, setSelectedCar] = useState<Car | null>(null);
   const [catalogInitialFilters, setCatalogInitialFilters] = useState<any>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [authModalMode, setAuthModalMode] = useState<'login' | 'register' | 'forgot'>('login');
 
   // Sync state from storage
   const loadData = () => {
@@ -43,11 +46,11 @@ export default function App() {
       setCurrentUser(user);
     });
 
-    // 3. Real-time Firestore sync for cars
+    // 3. Real-time Firestore sync for cars with smart local persistence merge
     const unsubscribeCars = firebaseSync.subscribeCars((firestoreCars) => {
       if (Array.isArray(firestoreCars)) {
-        setCars(firestoreCars);
         storage.setCarsFromFirebase(firestoreCars);
+        setCars(storage.getCars());
       }
     });
 
@@ -81,7 +84,21 @@ export default function App() {
       }
     });
 
-    // 9. Route sync
+    // 8. Real-time Firestore sync for admins (equal privileges)
+    const unsubscribeAdmins = firebaseSync.subscribeAdmins((firestoreAdmins) => {
+      if (Array.isArray(firestoreAdmins)) {
+        storage.setAdminsFromFirebase(firestoreAdmins);
+      }
+    });
+
+    // 9. Real-time Firestore sync for expenses (Finance sector)
+    const unsubscribeExpenses = firebaseSync.subscribeExpenses((firestoreExpenses) => {
+      if (Array.isArray(firestoreExpenses)) {
+        storage.setExpensesFromFirebase(firestoreExpenses);
+      }
+    });
+
+    // 10. Route sync
     const pathname = window.location.pathname.toLowerCase();
     if (pathname.includes('/admin')) {
       setCurrentTab('admin');
@@ -114,6 +131,8 @@ export default function App() {
       unsubscribeInquiries();
       unsubscribeCustomers();
       unsubscribeQuotations();
+      unsubscribeAdmins();
+      unsubscribeExpenses();
       window.removeEventListener('popstate', handlePopState);
     };
   }, []);
@@ -140,6 +159,11 @@ export default function App() {
     }
   };
 
+  const handleOpenAuth = (mode: 'login' | 'register' | 'forgot' = 'login') => {
+    setAuthModalMode(mode);
+    setIsAuthModalOpen(true);
+  };
+
   const handleSignIn = async () => {
     try {
       await signInWithGoogle();
@@ -164,12 +188,12 @@ export default function App() {
         onNavigate={handleNavigate} 
         carCount={cars.filter(c => c.status === 'Disponible').length}
         user={currentUser}
-        onSignIn={handleSignIn}
+        onSignIn={() => handleOpenAuth('login')}
         onSignOut={handleSignOut}
       />
 
       {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8">
+      <main className={`flex-1 w-full mx-auto px-4 sm:px-6 lg:px-8 ${currentTab === 'admin' ? 'max-w-[1680px] pt-4 sm:pt-6' : 'max-w-7xl pt-6 sm:pt-8'}`}>
         {currentTab === 'home' && (
           <HomeView 
             cars={cars} 
@@ -215,8 +239,8 @@ export default function App() {
         )}
       </main>
 
-      {/* Footer */}
-      <Footer onNavigate={handleNavigate} />
+      {/* Footer (Hidden in Admin View for dedicated dashboard experience) */}
+      {currentTab !== 'admin' && <Footer onNavigate={handleNavigate} />}
 
       {/* Vehicle Detail Modal */}
       <CarDetailModal 
@@ -226,6 +250,18 @@ export default function App() {
 
       {/* Floating WhatsApp Action Button (Hidden in Admin View) */}
       {currentTab !== 'admin' && <FloatingWhatsApp />}
+
+      {/* Secure Multi-Method Authentication Modal */}
+      <AuthModal 
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        initialMode={authModalMode}
+        onSuccess={(user) => {
+          if (isUserAdmin(user) && currentTab !== 'admin') {
+            handleNavigate('admin');
+          }
+        }}
+      />
     </div>
   );
 }

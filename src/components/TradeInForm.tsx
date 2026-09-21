@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { storage } from '../utils/storage';
+import { BrandModelSelector } from './BrandModelSelector';
 import { Car, Send, Check, AlertCircle } from 'lucide-react';
 
 export const TradeInForm: React.FC = () => {
@@ -16,6 +17,8 @@ export const TradeInForm: React.FC = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!brand || !model || !name || !phone) return;
+
+    storage.ensureBrandAndModel(brand, model).catch(err => console.warn('Ensure brand notice:', err));
 
     storage.addInquiry({
       name,
@@ -38,11 +41,14 @@ export const TradeInForm: React.FC = () => {
     <div className="bg-[#0a0a0a] border border-white/10 p-6 sm:p-10 relative overflow-hidden">
       <div className="max-w-3xl mx-auto space-y-6">
         <div className="text-center space-y-2">
-          <h2 className="text-2xl sm:text-3xl font-serif text-white font-light">
-            Tasación de Vehículo Usado
+          <span className="text-[9px] font-mono uppercase tracking-[0.3em] text-[#D4AF37] block">
+            Servicio de Valuación & Permutas
+          </span>
+          <h2 className="text-2xl sm:text-3xl font-serif text-white font-light tracking-tight">
+            Tasación Oficial & Toma de Vehículos
           </h2>
-          <p className="text-white/40 text-xs font-light max-w-lg mx-auto">
-            Adquirimos su unidad o la tomamos en parte de pago bajo las mejores condiciones de mercado.
+          <p className="text-white/45 text-xs sm:text-sm font-light max-w-lg mx-auto">
+            Cotizamos su unidad con parámetros de mercado verificados para adquisición directa o entrega en parte de pago.
           </p>
         </div>
 
@@ -53,7 +59,7 @@ export const TradeInForm: React.FC = () => {
             </div>
             <h3 className="text-base font-serif text-white">Solicitud Recibida</h3>
             <p className="text-xs text-white/60 font-light max-w-md mx-auto">
-              Evaluaremos las especificaciones de su {brand} {model} y le responderemos a la brevedad con una cotización preliminar.
+              Evaluaremos las especificaciones de su {brand} {model} y nos contactaremos para coordinar la inspección.
             </p>
             <button
               onClick={() => {
@@ -62,126 +68,119 @@ export const TradeInForm: React.FC = () => {
                 setModel('');
                 setNotes('');
               }}
-              className="mt-4 px-4 py-2.5 bg-[#0a0a0a] text-white/70 border border-white/10 hover:text-white text-[10px] uppercase font-bold tracking-widest"
+              className="mt-4 px-4 py-2.5 bg-[#0a0a0a] text-white/70 border border-white/10 hover:text-white text-[10px] uppercase font-mono tracking-widest cursor-pointer"
             >
               Tasar Otro Vehículo
             </button>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-4 bg-[#050505] p-6 border border-white/5">
-            <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#D4AF37] mb-2">
-              1. Especificaciones del Vehículo
-            </h3>
+          <form onSubmit={handleSubmit} className="space-y-5 bg-[#050505] p-6 sm:p-8 border border-white/10">
+            <div className="flex items-center gap-2 border-b border-white/10 pb-2.5">
+              <span className="text-[9.5px] font-mono uppercase tracking-[0.25em] text-[#D4AF37]">
+                01. Especificaciones del Vehículo
+              </span>
+            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              <div>
-                <label className="block text-[10px] uppercase tracking-widest text-white/50 mb-1">Marca *</label>
-                <input 
-                  type="text" 
-                  required
-                  placeholder="Ej: Porsche"
-                  value={brand}
-                  onChange={(e) => setBrand(e.target.value)}
-                  className="w-full bg-[#0a0a0a] border border-white/10 px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-[#D4AF37]"
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
+              <div className="lg:col-span-8">
+                <BrandModelSelector
+                  selectedBrand={brand}
+                  selectedModel={model}
+                  onBrandChange={(b) => setBrand(b)}
+                  onModelChange={(m) => setModel(m)}
+                  brandLabel="Marca *"
+                  modelLabel="Modelo & Versión *"
                 />
               </div>
 
-              <div>
-                <label className="block text-[10px] uppercase tracking-widest text-white/50 mb-1">Modelo & Versión *</label>
-                <input 
-                  type="text" 
-                  required
-                  placeholder="Ej: Macan S"
-                  value={model}
-                  onChange={(e) => setModel(e.target.value)}
-                  className="w-full bg-[#0a0a0a] border border-white/10 px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-[#D4AF37]"
-                />
-              </div>
+              <div className="grid grid-cols-2 gap-3 lg:col-span-4">
+                <div>
+                  <label className="block text-[9px] uppercase font-mono tracking-[0.2em] text-white/50 mb-1.5">Año *</label>
+                  <input 
+                    type="number" 
+                    required
+                    min="2005"
+                    max="2026"
+                    value={year}
+                    onChange={(e) => setYear(e.target.value)}
+                    className="w-full bg-[#0a0a0a] border border-white/10 hover:border-white/20 px-3 py-2 text-xs text-white focus:outline-none focus:border-[#D4AF37]"
+                  />
+                </div>
 
-              <div>
-                <label className="block text-[10px] uppercase tracking-widest text-white/50 mb-1">Año *</label>
-                <input 
-                  type="number" 
-                  required
-                  min="2005"
-                  max="2026"
-                  value={year}
-                  onChange={(e) => setYear(e.target.value)}
-                  className="w-full bg-[#0a0a0a] border border-white/10 px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-[#D4AF37]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] uppercase tracking-widest text-white/50 mb-1">Kilometraje *</label>
-                <input 
-                  type="number" 
-                  required
-                  step="1000"
-                  value={km}
-                  onChange={(e) => setKm(e.target.value)}
-                  className="w-full bg-[#0a0a0a] border border-white/10 px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-[#D4AF37]"
-                />
+                <div>
+                  <label className="block text-[9px] uppercase font-mono tracking-[0.2em] text-white/50 mb-1.5">Kilómetros *</label>
+                  <input 
+                    type="number" 
+                    required
+                    step="1000"
+                    value={km}
+                    onChange={(e) => setKm(e.target.value)}
+                    className="w-full bg-[#0a0a0a] border border-white/10 hover:border-white/20 px-3 py-2 text-xs text-white focus:outline-none focus:border-[#D4AF37]"
+                  />
+                </div>
               </div>
             </div>
 
-            <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#D4AF37] pt-3 mb-2">
-              2. Datos del Propietario
-            </h3>
+            <div className="flex items-center gap-2 border-b border-white/10 pb-2.5 pt-2">
+              <span className="text-[9.5px] font-mono uppercase tracking-[0.25em] text-[#D4AF37]">
+                02. Datos de Contacto
+              </span>
+            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label className="block text-[10px] uppercase tracking-widest text-white/50 mb-1">Nombre *</label>
+                <label className="block text-[9px] uppercase font-mono tracking-[0.2em] text-white/50 mb-1.5">Nombre & Apellido *</label>
                 <input 
                   type="text" 
                   required
                   placeholder="Ej: Roberto Fernandez"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full bg-[#0a0a0a] border border-white/10 px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-[#D4AF37]"
+                  className="w-full bg-[#0a0a0a] border border-white/10 hover:border-white/20 px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-[#D4AF37]"
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] uppercase tracking-widest text-white/50 mb-1">Teléfono / WhatsApp *</label>
+                <label className="block text-[9px] uppercase font-mono tracking-[0.2em] text-white/50 mb-1.5">Teléfono / WhatsApp *</label>
                 <input 
                   type="tel" 
                   required
                   placeholder="+54 11 9999-8888"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  className="w-full bg-[#0a0a0a] border border-white/10 px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-[#D4AF37]"
+                  className="w-full bg-[#0a0a0a] border border-white/10 hover:border-white/20 px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-[#D4AF37]"
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] uppercase tracking-widest text-white/50 mb-1">Correo Electrónico</label>
+                <label className="block text-[9px] uppercase font-mono tracking-[0.2em] text-white/50 mb-1.5">Correo Electrónico</label>
                 <input 
                   type="email" 
                   placeholder="correo@ejemplo.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-[#0a0a0a] border border-white/10 px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-[#D4AF37]"
+                  className="w-full bg-[#0a0a0a] border border-white/10 hover:border-white/20 px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-[#D4AF37]"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-[10px] uppercase tracking-widest text-white/50 mb-1">Observaciones (opcional)</label>
+              <label className="block text-[9px] uppercase font-mono tracking-[0.2em] text-white/50 mb-1.5">Observaciones Adicionales (opcional)</label>
               <textarea 
                 rows={2}
-                placeholder="Detalles sobre historial de servicios, mantenimiento o interés en algún modelo de nuestra colección..."
+                placeholder="Historial de mantenimientos, estado general o si desea permutar por una unidad de nuestro salón..."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                className="w-full bg-[#0a0a0a] border border-white/10 px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-[#D4AF37]"
+                className="w-full bg-[#0a0a0a] border border-white/10 hover:border-white/20 px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-[#D4AF37]"
               />
             </div>
 
             <button
               type="submit"
-              className="w-full py-3.5 px-4 font-bold bg-[#D4AF37] hover:bg-[#c4a02e] text-black transition-all text-[10px] uppercase tracking-[0.2em] flex items-center justify-center gap-2 mt-4"
+              className="w-full py-3.5 px-4 font-semibold bg-[#D4AF37] hover:bg-[#c4a02e] text-black transition-all text-[11px] uppercase tracking-[0.2em] flex items-center justify-center gap-2 mt-4 cursor-pointer"
             >
               <Send className="w-3.5 h-3.5" />
-              <span>Solicitar Cotización</span>
+              <span>Solicitar Valuación Profesional</span>
             </button>
           </form>
         )}

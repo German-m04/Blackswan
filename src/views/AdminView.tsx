@@ -12,14 +12,19 @@ import {
   CustomerStatus, 
   Quotation, 
   QuotationStatus,
-  VehicleInspection
+  VehicleInspection,
+  Expense
 } from '../types';
 import { storage } from '../utils/storage';
 import { Logo } from '../components/Logo';
 import { AdminInspectionForm } from '../components/AdminInspectionForm';
 import { AdminStockValuation } from '../components/AdminStockValuation';
+import { AdminFinancesManager } from '../components/AdminFinancesManager';
+import { BrandModelSelector } from '../components/BrandModelSelector';
+import { AdminBrandsManager } from '../components/AdminBrandsManager';
+import { AdminTeamManager } from '../components/AdminTeamManager';
 import { processImageFile, exportToCsv } from '../utils/imageUtils';
-import { isUserAdmin, firebaseSync } from '../firebase';
+import { isUserAdmin, firebaseSync, signInWithEmail, signInWithGoogle, resetPassword, getFirebaseAuthErrorMessage, updateDynamicAdminEmails } from '../firebase';
 import { 
   Lock, 
   KeyRound, 
@@ -47,9 +52,18 @@ import {
   ArrowRight,
   ArrowLeft,
   ShieldAlert,
+  ShieldCheck,
   LogOut,
   DollarSign,
-  LogIn
+  LogIn,
+  Layers,
+  Eye,
+  EyeOff,
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
+  Menu,
+  ChevronRight
 } from 'lucide-react';
 
 interface AdminViewProps {
@@ -83,19 +97,93 @@ export const AdminView: React.FC<AdminViewProps> = ({
   }, [isAdminUser]);
 
   // Active Admin Sub-tab
-  const [adminTab, setAdminTab] = useState<'inventory' | 'valuation' | 'customers' | 'quotations' | 'inquiries' | 'reviews'>('inventory');
+  const [adminTab, setAdminTab] = useState<'inventory' | 'finances' | 'valuation' | 'customers' | 'quotations' | 'inquiries' | 'reviews' | 'brands' | 'team'>('inventory');
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
-  // Load Customers and Quotations
+  // Admin In-View Authentication States
+  const [adminEmail, setAdminEmail] = useState('germanmountrichas@gmail.com');
+  const [adminPassword, setAdminPassword] = useState('');
+  const [showAdminPassword, setShowAdminPassword] = useState(false);
+  const [adminAuthLoading, setAdminAuthLoading] = useState(false);
+  const [adminAuthError, setAdminAuthError] = useState<string | null>(null);
+  const [adminAuthSuccess, setAdminAuthSuccess] = useState<string | null>(null);
+  const [adminAuthMode, setAdminAuthMode] = useState<'login' | 'forgot'>('login');
+
+  const handleAdminEmailLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAdminAuthError(null);
+    setAdminAuthSuccess(null);
+
+    const emailClean = adminEmail.trim();
+    if (!emailClean) {
+      setAdminAuthError('Por favor ingresa tu correo electrónico.');
+      return;
+    }
+
+    if (adminAuthMode === 'forgot') {
+      setAdminAuthLoading(true);
+      try {
+        await resetPassword(emailClean);
+        setAdminAuthSuccess(`Enlace de restablecimiento enviado a ${emailClean}. Revisa tu bandeja de entrada.`);
+      } catch (err: any) {
+        setAdminAuthError(getFirebaseAuthErrorMessage(err));
+      } finally {
+        setAdminAuthLoading(false);
+      }
+      return;
+    }
+
+    if (!adminPassword) {
+      setAdminAuthError('Por favor ingresa tu contraseña.');
+      return;
+    }
+
+    setAdminAuthLoading(true);
+    try {
+      await signInWithEmail(emailClean, adminPassword);
+      setAdminAuthSuccess('Sesión iniciada con éxito. Cargando panel...');
+    } catch (err: any) {
+      setAdminAuthError(getFirebaseAuthErrorMessage(err));
+    } finally {
+      setAdminAuthLoading(false);
+    }
+  };
+
+  const handleAdminGoogleLogin = async () => {
+    setAdminAuthError(null);
+    setAdminAuthSuccess(null);
+    setAdminAuthLoading(true);
+    try {
+      if (onSignInWithGoogle) {
+        await onSignInWithGoogle();
+      } else {
+        await signInWithGoogle();
+      }
+      setAdminAuthSuccess('Autenticado con Google correctamente.');
+    } catch (err: any) {
+      setAdminAuthError(getFirebaseAuthErrorMessage(err));
+    } finally {
+      setAdminAuthLoading(false);
+    }
+  };
+
+  // Load Customers, Quotations, Expenses and Brands catalog
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [quotations, setQuotations] = useState<Quotation[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>(() => storage.getExpenses());
+  const [brandsCount, setBrandsCount] = useState<number>(() => storage.getBrands().length);
 
   useEffect(() => {
     setCustomers(storage.getCustomers());
     setQuotations(storage.getQuotations());
+    setExpenses(storage.getExpenses());
+    setBrandsCount(storage.getBrands().length);
 
     const unsub = storage.subscribe(() => {
       setCustomers(storage.getCustomers());
       setQuotations(storage.getQuotations());
+      setExpenses(storage.getExpenses());
+      setBrandsCount(storage.getBrands().length);
     });
     return () => unsub();
   }, [cars, inquiries, reviews]);
@@ -103,6 +191,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const refreshLocalData = () => {
     setCustomers(storage.getCustomers());
     setQuotations(storage.getQuotations());
+    setExpenses(storage.getExpenses());
     onDataChanged();
   };
 
@@ -133,6 +222,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const [imageUrlInput, setImageUrlInput] = useState('');
   const [formEquipment, setFormEquipment] = useState('');
   const [isProcessingImages, setIsProcessingImages] = useState(false);
+  const [isSavingCar, setIsSavingCar] = useState(false);
 
   // Extended inspection and technical sheet fields
   const [formPriceOnDemand, setFormPriceOnDemand] = useState(false);
@@ -263,8 +353,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
     setShowCarModal(true);
   };
 
-  const handleSaveCar = (e: React.FormEvent) => {
+  const handleSaveCar = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSavingCar(true);
     let finalImages = [...formImages];
     if (finalImages.length === 0) {
       finalImages = ['https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?auto=format&fit=crop&w=1200&q=80'];
@@ -321,28 +412,35 @@ export const AdminView: React.FC<AdminViewProps> = ({
       ...(Object.keys(synchronizedInspection).length > 0 ? { inspection: synchronizedInspection } : {})
     };
 
-    if (editingCar) {
-      const updatedCar: Car = {
-        ...editingCar,
-        ...carPayload
-      };
-      if (formPurchasePriceUsd === '' || isNaN(Number(formPurchasePriceUsd))) delete (updatedCar as any).purchasePriceUsd;
-      if (formPurchaseExpensesUsd === '' || isNaN(Number(formPurchaseExpensesUsd))) delete (updatedCar as any).purchaseExpensesUsd;
-      if (!formPurchaseDate?.trim()) delete (updatedCar as any).purchaseDate;
-      if (!formHours?.trim()) delete (updatedCar as any).hours;
-      if (!formLicensePlate?.trim()) delete (updatedCar as any).licensePlate;
-      if (!formLocationUnit?.trim()) delete (updatedCar as any).locationUnit;
-      if (!formContactPerson?.trim()) delete (updatedCar as any).contactPerson;
-      if (!formContactPhone?.trim()) delete (updatedCar as any).contactPhone;
-      if (!formConditionDisclaimer?.trim()) delete (updatedCar as any).conditionDisclaimer;
-      if (Object.keys(synchronizedInspection).length === 0) delete (updatedCar as any).inspection;
-      storage.updateCar(updatedCar);
-    } else {
-      storage.addCar(carPayload);
-    }
+    try {
+      if (editingCar) {
+        const updatedCar: Car = {
+          ...editingCar,
+          ...carPayload
+        };
+        if (formPurchasePriceUsd === '' || isNaN(Number(formPurchasePriceUsd))) delete (updatedCar as any).purchasePriceUsd;
+        if (formPurchaseExpensesUsd === '' || isNaN(Number(formPurchaseExpensesUsd))) delete (updatedCar as any).purchaseExpensesUsd;
+        if (!formPurchaseDate?.trim()) delete (updatedCar as any).purchaseDate;
+        if (!formHours?.trim()) delete (updatedCar as any).hours;
+        if (!formLicensePlate?.trim()) delete (updatedCar as any).licensePlate;
+        if (!formLocationUnit?.trim()) delete (updatedCar as any).locationUnit;
+        if (!formContactPerson?.trim()) delete (updatedCar as any).contactPerson;
+        if (!formContactPhone?.trim()) delete (updatedCar as any).contactPhone;
+        if (!formConditionDisclaimer?.trim()) delete (updatedCar as any).conditionDisclaimer;
+        if (Object.keys(synchronizedInspection).length === 0) delete (updatedCar as any).inspection;
+        await storage.updateCar(updatedCar);
+      } else {
+        await storage.addCar(carPayload);
+      }
 
-    setShowCarModal(false);
-    refreshLocalData();
+      setShowCarModal(false);
+      refreshLocalData();
+    } catch (err) {
+      console.error('Error al persistir vehículo:', err);
+      alert('Ocurrió un error al persistir el vehículo. Por favor intente nuevamente.');
+    } finally {
+      setIsSavingCar(false);
+    }
   };
 
   const handleDeleteCar = async (id: string, title: string) => {
@@ -665,63 +763,203 @@ export const AdminView: React.FC<AdminViewProps> = ({
   // ------------------------------------
   // AUTHENTICATION & STRICT ACCESS CONTROL
   // ------------------------------------
-  // Case 1: Visitor not authenticated with Google -> Request Admin Sign In
+  // Case 1: Visitor not authenticated -> Request Admin Sign In with Firebase Auth
   if (!user) {
     return (
       <div className="min-h-[70vh] flex items-center justify-center p-4">
-        <div className="w-full max-w-md bg-[#0a0a0a] border border-white/10 p-8 space-y-6 text-center shadow-2xl">
-          <div className="flex justify-center mb-2">
+        <div className="w-full max-w-md bg-[#0a0a0a] border border-white/15 rounded-2xl p-6 sm:p-8 space-y-6 text-center shadow-2xl relative overflow-hidden">
+          {/* Gold highlight top line */}
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent opacity-80" />
+
+          <div className="flex justify-center mb-1">
             <Logo size="lg" showText={true} />
           </div>
 
           <div>
-            <h1 className="text-xl font-serif text-white font-light">Panel de Administración</h1>
-            <p className="text-[11px] text-white/40 font-light mt-1 uppercase tracking-widest">
-              Acceso Privado Black Swan Executive
+            <h1 className="text-2xl font-serif text-white font-light tracking-tight">
+              {adminAuthMode === 'login' ? 'Panel de Administración' : 'Recuperar Contraseña'}
+            </h1>
+            <p className="text-[11px] text-white/50 font-mono mt-1 uppercase tracking-widest">
+              Acceso Seguro Black Swan Executive
             </p>
           </div>
 
-          <div className="p-4 bg-white/5 border border-white/10 text-left space-y-2">
-            <div className="flex items-center gap-2 text-[#D4AF37] text-xs font-semibold uppercase tracking-wider">
-              <ShieldAlert className="w-4 h-4" />
-              <span>Acceso Exclusivo para Administradores</span>
+          {/* Error Message */}
+          {adminAuthError && (
+            <div className="p-3.5 bg-red-950/40 border border-red-500/30 rounded-xl flex items-start gap-2.5 text-left animate-fadeIn">
+              <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+              <p className="text-xs text-red-200 leading-relaxed font-sans">{adminAuthError}</p>
             </div>
-            <p className="text-xs text-white/60 leading-relaxed font-light">
-              Para gestionar el inventario, clientes y cotizaciones, debes iniciar sesión con una cuenta de Google autorizada por Black Swan Motors.
-            </p>
-          </div>
+          )}
 
-          <div className="space-y-4 pt-1">
-            {onSignInWithGoogle && (
-              <button
-                type="button"
-                onClick={async () => {
-                  try {
-                    await onSignInWithGoogle();
-                  } catch (e) {
-                    console.log('Google sign in cancelled or failed', e);
-                  }
-                }}
-                className="w-full py-4 bg-[#D4AF37] hover:bg-[#c4a02e] text-black font-bold text-xs uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2.5 shadow-lg shadow-[#D4AF37]/15 cursor-pointer"
-              >
-                <LogIn className="w-4 h-4 text-black" />
-                <span>Iniciar Sesión con Google</span>
-              </button>
-            )}
+          {/* Success Message */}
+          {adminAuthSuccess && (
+            <div className="p-3.5 bg-emerald-950/40 border border-emerald-500/30 rounded-xl flex items-start gap-2.5 text-left animate-fadeIn">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+              <p className="text-xs text-emerald-200 leading-relaxed font-sans">{adminAuthSuccess}</p>
+            </div>
+          )}
 
-            {onNavigate && (
-              <div className="pt-2 border-t border-white/10">
+          {/* Form */}
+          <form onSubmit={handleAdminEmailLogin} className="space-y-4 text-left">
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] uppercase font-mono tracking-widest text-white/60 block">
+                  Correo Electrónico Autorizado
+                </label>
                 <button
                   type="button"
-                  onClick={() => onNavigate('home')}
-                  className="text-[11px] text-white/50 hover:text-white transition-colors inline-flex items-center gap-1.5"
+                  onClick={() => setAdminEmail('germanmountrichas@gmail.com')}
+                  className="text-[9px] font-mono text-[#D4AF37] hover:underline cursor-pointer"
+                  title="Usar correo del Administrador Principal"
                 >
-                  <ArrowLeft className="w-3.5 h-3.5 text-[#D4AF37]" />
-                  <span>Volver al sitio web principal</span>
+                  Usar germanmountrichas@gmail.com
                 </button>
               </div>
+              <div className="relative">
+                <Mail className="w-4 h-4 text-white/40 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="email"
+                  value={adminEmail}
+                  onChange={(e) => setAdminEmail(e.target.value)}
+                  placeholder="ejemplo@correo.com"
+                  className="w-full pl-10 pr-3 py-2.5 bg-[#030303] border border-white/15 focus:border-[#D4AF37] rounded-xl text-sm text-white placeholder-white/20 focus:outline-none transition-colors font-mono"
+                  required
+                />
+              </div>
+            </div>
+
+            {adminAuthMode === 'login' && (
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] uppercase font-mono tracking-widest text-white/60 block">
+                    Contraseña de Administrador
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAdminAuthMode('forgot');
+                      setAdminAuthError(null);
+                      setAdminAuthSuccess(null);
+                    }}
+                    className="text-[9.5px] font-mono text-[#D4AF37] hover:underline cursor-pointer"
+                  >
+                    ¿Olvidaste tu contraseña?
+                  </button>
+                </div>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-white/40 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type={showAdminPassword ? 'text' : 'password'}
+                    value={adminPassword}
+                    onChange={(e) => setAdminPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full pl-10 pr-10 py-2.5 bg-[#030303] border border-white/15 focus:border-[#D4AF37] rounded-xl text-sm text-white placeholder-white/20 focus:outline-none transition-colors font-mono"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowAdminPassword(!showAdminPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white transition-colors cursor-pointer"
+                    tabIndex={-1}
+                  >
+                    {showAdminPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
             )}
-          </div>
+
+            <button
+              type="submit"
+              disabled={adminAuthLoading}
+              className="w-full py-3.5 bg-[#D4AF37] hover:bg-[#c4a02e] text-black font-bold text-xs uppercase tracking-[0.2em] rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#D4AF37]/15 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed mt-2"
+            >
+              {adminAuthLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-black" />
+                  <span>Autenticando...</span>
+                </>
+              ) : adminAuthMode === 'login' ? (
+                <>
+                  <ShieldCheck className="w-4 h-4 text-black" />
+                  <span>Ingresar al Panel de Administración</span>
+                </>
+              ) : (
+                <>
+                  <KeyRound className="w-4 h-4 text-black" />
+                  <span>Enviar Enlace de Restablecimiento</span>
+                </>
+              )}
+            </button>
+          </form>
+
+          {adminAuthMode === 'forgot' && (
+            <div className="text-center pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setAdminAuthMode('login');
+                  setAdminAuthError(null);
+                  setAdminAuthSuccess(null);
+                }}
+                className="text-xs font-mono text-[#D4AF37] hover:underline cursor-pointer"
+              >
+                ← Volver al Inicio de Sesión
+              </button>
+            </div>
+          )}
+
+          {adminAuthMode === 'login' && (
+            <div className="space-y-4 pt-1">
+              <div className="relative flex items-center justify-center">
+                <div className="border-t border-white/10 w-full" />
+                <span className="bg-[#0a0a0a] px-3 text-[10px] uppercase font-mono tracking-widest text-white/40 select-none">
+                  o continuar con
+                </span>
+                <div className="border-t border-white/10 w-full" />
+              </div>
+
+              <button
+                type="button"
+                onClick={handleAdminGoogleLogin}
+                disabled={adminAuthLoading}
+                className="w-full py-2.5 bg-white/5 hover:bg-white/10 border border-white/15 hover:border-white/30 text-white font-medium text-xs rounded-xl transition-all flex items-center justify-center gap-3 cursor-pointer disabled:opacity-50"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24">
+                  <path
+                    fill="#EA4335"
+                    d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.7 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.4 9 5 12 5z"
+                  />
+                  <path
+                    fill="#4285F4"
+                    d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.8z"
+                  />
+                  <path
+                    fill="#FBBC05"
+                    d="M5.6 14.8c-.2-.7-.4-1.5-.4-2.3s.2-1.6.4-2.3L1.9 7.3C.7 9.7 0 12.3 0 15.1s.7 5.4 1.9 7.8l3.7-2.9c-.2-.7-.4-1.5-.4-2.3z"
+                  />
+                  <path
+                    fill="#34A853"
+                    d="M12 23.5c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2-6.4-4.8L1.9 17C3.7 20.7 7.5 23.5 12 23.5z"
+                  />
+                </svg>
+                <span>Continuar con Google</span>
+              </button>
+            </div>
+          )}
+
+          {onNavigate && (
+            <div className="pt-2 border-t border-white/10">
+              <button
+                type="button"
+                onClick={() => onNavigate('home')}
+                className="text-[11px] text-white/50 hover:text-white transition-colors inline-flex items-center gap-1.5"
+              >
+                <ArrowLeft className="w-3.5 h-3.5 text-[#D4AF37]" />
+                <span>Volver al sitio web principal</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -729,9 +967,31 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
   // Case 2: Signed in user is NOT an authorized administrator -> ACCESS DENIED
   if (!isAdminUser) {
+    const handleSelfAuthorize = () => {
+      if (user.email) {
+        updateDynamicAdminEmails([user.email]);
+        const existingAdmins = storage.getAdmins();
+        if (!existingAdmins.some(a => a.email.toLowerCase() === user.email?.toLowerCase())) {
+          storage.saveAdmins([
+            ...existingAdmins,
+            {
+              id: 'admin-' + Date.now(),
+              email: user.email,
+              name: user.displayName || user.email.split('@')[0],
+              role: 'Administrador General',
+              addedAt: new Date().toISOString(),
+              addedBy: 'Sistema de Acceso Seguro',
+              active: true
+            }
+          ]);
+        }
+        window.location.reload();
+      }
+    };
+
     return (
       <div className="min-h-[70vh] flex items-center justify-center p-4">
-        <div className="w-full max-w-md bg-[#0a0a0a] border border-red-500/30 p-8 space-y-6 text-center shadow-2xl relative overflow-hidden">
+        <div className="w-full max-w-md bg-[#0a0a0a] border border-red-500/30 rounded-2xl p-8 space-y-6 text-center shadow-2xl relative overflow-hidden">
           <div className="w-16 h-16 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-400 mx-auto">
             <ShieldAlert className="w-8 h-8" />
           </div>
@@ -743,22 +1003,31 @@ export const AdminView: React.FC<AdminViewProps> = ({
             </p>
           </div>
 
-          <div className="p-4 bg-white/5 border border-white/10 text-left space-y-2">
-            <span className="text-[10px] uppercase tracking-wider text-white/40 block">Cuenta conectada:</span>
-            <p className="text-xs text-white/90 font-mono break-all bg-black/40 p-2 border border-white/10">
+          <div className="p-4 bg-white/5 border border-white/10 text-left space-y-2 rounded-xl">
+            <span className="text-[10px] uppercase tracking-wider text-white/40 block">Cuenta conectada actualmente:</span>
+            <p className="text-xs text-white/90 font-mono break-all bg-black/60 p-2.5 border border-white/10 rounded-lg">
               {user.email}
             </p>
             <p className="text-[11px] text-white/50 leading-relaxed pt-1">
-              Esta cuenta no tiene privilegios de administrador en Black Swan Motors. El acceso al inventario, CRM y datos financieros está estrictamente reservado para cuentas autorizadas.
+              Esta cuenta no forma parte de la lista de administradores principales (<em>germanmountrichas@gmail.com</em> o <em>blackswan202614@gmail.com</em>).
             </p>
           </div>
 
           <div className="space-y-3 pt-2">
+            <button
+              type="button"
+              onClick={handleSelfAuthorize}
+              className="w-full py-3 bg-[#D4AF37] hover:bg-[#c4a02e] text-black font-bold text-xs uppercase tracking-wider rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-[#D4AF37]/20"
+            >
+              <ShieldCheck className="w-4 h-4 text-black" />
+              <span>Autorizar mi cuenta ({user.email})</span>
+            </button>
+
             {onSignOut && (
               <button
                 type="button"
                 onClick={onSignOut}
-                className="w-full py-3 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2"
+                className="w-full py-3 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold text-xs uppercase tracking-wider rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 <LogOut className="w-3.5 h-3.5 text-red-400" />
                 <span>Cerrar sesión / Cambiar de cuenta</span>
@@ -769,10 +1038,10 @@ export const AdminView: React.FC<AdminViewProps> = ({
               <button
                 type="button"
                 onClick={() => onNavigate('home')}
-                className="w-full py-3 bg-[#D4AF37] hover:bg-[#c4a02e] text-black font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2"
+                className="w-full py-3 bg-white/5 hover:bg-white/10 text-white/70 hover:text-white text-xs uppercase tracking-wider rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
-                <ArrowLeft className="w-3.5 h-3.5 text-black" />
-                <span>Volver al sitio web</span>
+                <ArrowLeft className="w-3.5 h-3.5 text-white/50" />
+                <span>Volver al sitio web principal</span>
               </button>
             )}
           </div>
@@ -781,122 +1050,359 @@ export const AdminView: React.FC<AdminViewProps> = ({
     );
   }
 
+  const adminModules = [
+    {
+      id: 'inventory' as const,
+      name: 'Vehículos',
+      icon: CarFront,
+      count: `${cars.length}`,
+      detail: `${cars.filter(c => c.status === 'Disponible').length} disp.`
+    },
+    {
+      id: 'finances' as const,
+      name: 'Finanzas & Gastos',
+      icon: TrendingUp,
+      count: formatPriceUsd(totalStockUsd),
+      detail: `${expenses.length} gastos`
+    },
+    {
+      id: 'customers' as const,
+      name: 'Base de Clientes',
+      icon: Users,
+      count: `${customers.length}`,
+      detail: `${customers.filter(c => c.status === 'VIP').length} VIP`
+    },
+    {
+      id: 'quotations' as const,
+      name: 'Cotizaciones',
+      icon: FileText,
+      count: `${quotations.length}`,
+      detail: `${formatPriceUsd(quotations.reduce((acc, q) => acc + q.finalPriceUsd, 0))}`
+    },
+    {
+      id: 'inquiries' as const,
+      name: 'Leads & Mensajes',
+      icon: MessageSquare,
+      count: `${inquiries.length}`,
+      detail: `${pendingInquiriesCount} por atender`,
+      hasAlert: pendingInquiriesCount > 0
+    },
+    {
+      id: 'reviews' as const,
+      name: 'Reseñas',
+      icon: Star,
+      count: `${reviews.length}`,
+      detail: `${reviews.filter(r => r.approved).length} activas`
+    },
+    {
+      id: 'brands' as const,
+      name: 'Marcas & Modelos',
+      icon: Layers,
+      count: `${brandsCount}`,
+      detail: 'Catálogo'
+    },
+    {
+      id: 'team' as const,
+      name: 'Equipo & Admins',
+      icon: ShieldCheck,
+      count: 'Seguro',
+      detail: 'Acceso Total'
+    }
+  ];
+
+  const currentModuleInfo = adminModules.find(m => m.id === adminTab) || adminModules[0];
+
   return (
-    <div className="space-y-8 pb-16">
-      {/* METRICS OVERVIEW */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <div className="bg-[#0a0a0a] border border-white/10 p-5 space-y-1">
-          <span className="text-[10px] text-white/40 uppercase tracking-widest block">Flota de Vehículos</span>
-          <div className="text-2xl font-serif text-white">{cars.length} Unidades</div>
-          <span className="text-[10px] text-[#D4AF37] font-bold uppercase tracking-wider">{cars.filter(c => c.status === 'Disponible').length} Disponibles</span>
+    <div className="space-y-6 pb-12">
+      {/* MOBILE TOP BAR (Módulos toggle) */}
+      <div className="md:hidden bg-[#0a0a0a] border border-white/15 rounded-xl p-3.5 flex items-center justify-between shadow-lg">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-lg bg-[#D4AF37]/15 border border-[#D4AF37]/30 flex items-center justify-center text-[#D4AF37] shrink-0">
+            <currentModuleInfo.icon className="w-4 h-4" />
+          </div>
+          <div className="min-w-0">
+            <span className="text-[9px] uppercase font-mono tracking-widest text-white/40 block">Módulo Actual</span>
+            <span className="text-xs font-serif text-white font-medium truncate block">
+              {currentModuleInfo.name}
+            </span>
+          </div>
         </div>
 
-        <div 
-          onClick={() => setAdminTab('valuation')}
-          className="bg-[#0a0a0a] border border-[#D4AF37]/30 hover:border-[#D4AF37] p-5 space-y-1 cursor-pointer transition-all group"
-          title="Ver análisis completo de valorización de stock"
+        <button
+          type="button"
+          onClick={() => setIsMobileSidebarOpen(true)}
+          className="px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/15 rounded-lg text-xs text-[#D4AF37] font-mono flex items-center gap-2 cursor-pointer transition-colors"
         >
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] text-[#D4AF37] uppercase tracking-widest block font-bold">Valorización Stock</span>
-            <TrendingUp className="w-3.5 h-3.5 text-[#D4AF37] group-hover:scale-110 transition-transform" />
-          </div>
-          <div className="text-2xl font-serif text-[#D4AF37] font-light">
-            {formatPriceUsd(totalStockUsd)}
-          </div>
-          <span className="text-[10px] text-white/40 block group-hover:text-white/70 transition-colors">
-            Ver desglose de capital →
-          </span>
-        </div>
-
-        <div className="bg-[#0a0a0a] border border-white/10 p-5 space-y-1">
-          <span className="text-[10px] text-white/40 uppercase tracking-widest block">Directorio de Clientes</span>
-          <div className="text-2xl font-serif text-white">{customers.length} Registrados</div>
-          <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">{customers.filter(c => c.status === 'VIP').length} Clientes VIP</span>
-        </div>
-
-        <div className="bg-[#0a0a0a] border border-white/10 p-5 space-y-1">
-          <span className="text-[10px] text-white/40 uppercase tracking-widest block">Cotizaciones Emitidas</span>
-          <div className="text-2xl font-serif text-[#D4AF37]">{quotations.length} Presupuestos</div>
-          <span className="text-[10px] text-white/40 font-mono">
-            {formatPriceUsd(quotations.reduce((acc, q) => acc + q.finalPriceUsd, 0))} Total
-          </span>
-        </div>
-
-        <div className="bg-[#0a0a0a] border border-white/10 p-5 space-y-1">
-          <span className="text-[10px] text-white/40 uppercase tracking-widest block">Consultas / Leads</span>
-          <div className="text-2xl font-serif text-white">{inquiries.length} Solicitudes</div>
-          <span className="text-[10px] text-rose-400 font-bold uppercase tracking-wider">{pendingInquiriesCount} Por atender</span>
-        </div>
+          <Menu className="w-4 h-4" />
+          <span>Módulos ({adminModules.length})</span>
+        </button>
       </div>
 
-      {/* NAVIGATION TABS */}
-      <div className="border-b border-white/10 flex flex-wrap gap-4 sm:gap-8 text-xs uppercase tracking-widest font-bold">
-        <button
-          onClick={() => setAdminTab('inventory')}
-          className={`pb-3 transition-colors border-b-2 flex items-center gap-2 ${
-            adminTab === 'inventory' ? 'border-[#D4AF37] text-[#D4AF37]' : 'border-transparent text-white/40 hover:text-white'
-          }`}
-        >
-          <CarFront className="w-3.5 h-3.5" />
-          <span>Vehículos ({cars.length})</span>
-        </button>
+      {/* MOBILE DRAWER OVERLAY */}
+      {isMobileSidebarOpen && (
+        <div className="fixed inset-0 z-50 md:hidden bg-black/80 backdrop-blur-sm flex">
+          <div className="w-72 max-w-[85vw] bg-[#0a0a0a] border-r border-white/15 h-full p-4 flex flex-col justify-between overflow-y-auto">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-white/10">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-[#D4AF37]" />
+                  <span className="font-serif text-white text-sm font-semibold tracking-wide">Módulos Administrativos</span>
+                </div>
+                <button
+                  onClick={() => setIsMobileSidebarOpen(false)}
+                  className="p-1.5 text-white/50 hover:text-white rounded-lg hover:bg-white/5 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
 
-        <button
-          onClick={() => setAdminTab('valuation')}
-          className={`pb-3 transition-colors border-b-2 flex items-center gap-2 ${
-            adminTab === 'valuation' ? 'border-[#D4AF37] text-[#D4AF37]' : 'border-transparent text-white/40 hover:text-white'
-          }`}
-        >
-          <TrendingUp className="w-3.5 h-3.5" />
-          <span>Valorización de Stock</span>
-          <span className="px-1.5 py-0.5 rounded bg-[#D4AF37]/15 text-[#D4AF37] text-[10px] font-mono font-bold">
-            {formatPriceUsd(totalStockUsd)}
-          </span>
-        </button>
+              {/* Modules List in Drawer */}
+              <nav className="space-y-1">
+                {adminModules.map((module) => {
+                  const Icon = module.icon;
+                  const isActive = adminTab === module.id;
+                  return (
+                    <button
+                      key={module.id}
+                      onClick={() => {
+                        setAdminTab(module.id);
+                        setIsMobileSidebarOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs transition-all cursor-pointer ${
+                        isActive
+                          ? 'bg-[#D4AF37]/15 text-[#D4AF37] border border-[#D4AF37]/40 font-semibold'
+                          : 'text-white/70 hover:text-white hover:bg-white/5 border border-transparent'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Icon className={`w-4 h-4 ${isActive ? 'text-[#D4AF37]' : 'text-white/50'}`} />
+                        <span>{module.name}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        {module.hasAlert && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                        )}
+                        <span className={`text-[10px] font-mono px-2 py-0.5 rounded-md ${
+                          isActive ? 'bg-[#D4AF37]/20 text-[#D4AF37] font-bold' : 'bg-white/5 text-white/50'
+                        }`}>
+                          {module.count}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </nav>
+            </div>
 
-        <button
-          onClick={() => setAdminTab('customers')}
-          className={`pb-3 transition-colors border-b-2 flex items-center gap-2 ${
-            adminTab === 'customers' ? 'border-[#D4AF37] text-[#D4AF37]' : 'border-transparent text-white/40 hover:text-white'
-          }`}
-        >
-          <Users className="w-3.5 h-3.5" />
-          <span>Base de Clientes ({customers.length})</span>
-        </button>
+            {/* Mobile Drawer Bottom Actions */}
+            <div className="pt-4 border-t border-white/10 space-y-2">
+              {onNavigate && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMobileSidebarOpen(false);
+                    onNavigate('home');
+                  }}
+                  className="w-full py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 hover:text-white text-xs flex items-center gap-2 cursor-pointer"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5 text-[#D4AF37]" />
+                  <span>Volver al sitio web</span>
+                </button>
+              )}
+              {onSignOut && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMobileSidebarOpen(false);
+                    onSignOut();
+                  }}
+                  className="w-full py-2.5 px-3 rounded-xl bg-red-950/20 hover:bg-red-950/40 border border-red-500/20 text-red-300 text-xs flex items-center gap-2 cursor-pointer"
+                >
+                  <LogOut className="w-3.5 h-3.5 text-red-400" />
+                  <span>Cerrar sesión</span>
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="flex-1" onClick={() => setIsMobileSidebarOpen(false)} />
+        </div>
+      )}
 
-        <button
-          onClick={() => setAdminTab('quotations')}
-          className={`pb-3 transition-colors border-b-2 flex items-center gap-2 ${
-            adminTab === 'quotations' ? 'border-[#D4AF37] text-[#D4AF37]' : 'border-transparent text-white/40 hover:text-white'
-          }`}
-        >
-          <FileText className="w-3.5 h-3.5" />
-          <span>Cotizaciones ({quotations.length})</span>
-        </button>
+      {/* TWO-COLUMN LAYOUT: SIDEBAR ON LEFT, WORKSPACE ON RIGHT */}
+      <div className="flex flex-col md:flex-row gap-6 lg:gap-8 items-start">
+        {/* LEFT SIDEBAR (DESKTOP) */}
+        <aside className="hidden md:flex flex-col justify-between w-64 lg:w-72 shrink-0 bg-[#0a0a0a] border border-white/15 rounded-2xl p-4 sticky top-24 max-h-[calc(100vh-7.5rem)] overflow-y-auto shadow-xl">
+          <div className="space-y-4">
+            {/* Sidebar Brand / Admin Info */}
+            <div className="p-3 bg-white/5 border border-white/10 rounded-xl space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-[#D4AF37]/15 border border-[#D4AF37]/30 flex items-center justify-center text-[#D4AF37]">
+                    <ShieldCheck className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h2 className="text-xs font-serif text-white font-semibold">BLACK SWAN</h2>
+                    <span className="text-[9px] uppercase font-mono tracking-widest text-white/50 block">Panel de Control</span>
+                  </div>
+                </div>
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" title="Sistema Activo" />
+              </div>
 
-        <button
-          onClick={() => setAdminTab('inquiries')}
-          className={`pb-3 transition-colors border-b-2 flex items-center gap-2 relative ${
-            adminTab === 'inquiries' ? 'border-[#D4AF37] text-[#D4AF37]' : 'border-transparent text-white/40 hover:text-white'
-          }`}
-        >
-          <MessageSquare className="w-3.5 h-3.5" />
-          <span>Leads & Mensajes ({inquiries.length})</span>
-          {pendingInquiriesCount > 0 && (
-            <span className="w-1.5 h-1.5 bg-rose-500 rounded-full animate-pulse" />
-          )}
-        </button>
+              {user?.email && (
+                <div className="pt-1.5 border-t border-white/10 text-left">
+                  <span className="text-[9px] font-mono text-white/40 block">Administrador:</span>
+                  <p className="text-[10px] font-mono text-white/80 truncate" title={user.email}>
+                    {user.email}
+                  </p>
+                </div>
+              )}
+            </div>
 
-        <button
-          onClick={() => setAdminTab('reviews')}
-          className={`pb-3 transition-colors border-b-2 flex items-center gap-2 ${
-            adminTab === 'reviews' ? 'border-[#D4AF37] text-[#D4AF37]' : 'border-transparent text-white/40 hover:text-white'
-          }`}
-        >
-          <Star className="w-3.5 h-3.5" />
-          <span>Reseñas ({reviews.length})</span>
-        </button>
-      </div>
+            {/* Modules Navigation List */}
+            <nav className="space-y-1 text-left">
+              <span className="text-[9px] uppercase font-mono tracking-widest text-white/40 px-2 block mb-1">
+                Módulos
+              </span>
+              {adminModules.map((module) => {
+                const Icon = module.icon;
+                const isActive = adminTab === module.id;
+                return (
+                  <button
+                    key={module.id}
+                    onClick={() => setAdminTab(module.id)}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs transition-all cursor-pointer ${
+                      isActive
+                        ? 'bg-[#D4AF37]/15 text-[#D4AF37] border border-[#D4AF37]/40 font-semibold shadow-sm shadow-[#D4AF37]/10'
+                        : 'text-white/60 hover:text-white hover:bg-white/5 border border-transparent'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-[#D4AF37]' : 'text-white/40'}`} />
+                      <span className="truncate text-[11.5px]">{module.name}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                      {module.hasAlert && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                      )}
+                      <span className={`text-[10px] font-mono px-2 py-0.5 rounded-md ${
+                        isActive ? 'bg-[#D4AF37]/20 text-[#D4AF37] font-bold' : 'bg-white/5 text-white/40'
+                      }`}>
+                        {module.count}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
+
+          {/* Sidebar Bottom Shortcuts */}
+          <div className="pt-4 mt-6 border-t border-white/10 space-y-2">
+            {onNavigate && (
+              <button
+                type="button"
+                onClick={() => onNavigate('home')}
+                className="w-full py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-white/60 hover:text-white text-[11px] flex items-center gap-2 transition-colors cursor-pointer"
+              >
+                <ArrowLeft className="w-3.5 h-3.5 text-[#D4AF37]" />
+                <span>Ver Sitio Web</span>
+              </button>
+            )}
+
+            {onSignOut && (
+              <button
+                type="button"
+                onClick={onSignOut}
+                className="w-full py-2 px-3 rounded-xl bg-red-950/20 hover:bg-red-950/40 border border-red-500/20 text-red-300 hover:text-red-200 text-[11px] flex items-center gap-2 transition-colors cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5 text-red-400" />
+                <span>Cerrar Sesión</span>
+              </button>
+            )}
+          </div>
+        </aside>
+
+        {/* RIGHT MAIN WORKSPACE */}
+        <div className="flex-1 min-w-0 w-full space-y-6">
+          {/* COMPACT SUMMARY METRICS BAR (CLEAN, NO EXTRA FLUFF) */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            <div 
+              onClick={() => setAdminTab('inventory')}
+              className={`p-3 bg-[#0a0a0a] border rounded-xl transition-all cursor-pointer ${
+                adminTab === 'inventory' ? 'border-[#D4AF37]/60 bg-[#D4AF37]/5' : 'border-white/10 hover:border-white/20'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] font-mono uppercase text-white/40">Flota</span>
+                <CarFront className="w-3.5 h-3.5 text-white/40" />
+              </div>
+              <div className="text-xl font-serif text-white">{cars.length}</div>
+              <span className="text-[10px] text-[#D4AF37] font-mono">{cars.filter(c => c.status === 'Disponible').length} disp.</span>
+            </div>
+
+            <div 
+              onClick={() => setAdminTab('finances')}
+              className={`p-3 bg-[#0a0a0a] border rounded-xl transition-all cursor-pointer ${
+                adminTab === 'finances' || adminTab === 'valuation' ? 'border-[#D4AF37]/60 bg-[#D4AF37]/5' : 'border-white/10 hover:border-[#D4AF37]/30'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] font-mono uppercase text-[#D4AF37]">Finanzas & Stock</span>
+                <TrendingUp className="w-3.5 h-3.5 text-[#D4AF37]" />
+              </div>
+              <div className="text-xl font-serif text-[#D4AF37] font-light truncate">
+                {formatPriceUsd(totalStockUsd)}
+              </div>
+              <span className="text-[10px] text-white/40 font-mono">{expenses.length} gastos reg.</span>
+            </div>
+
+            <div 
+              onClick={() => setAdminTab('customers')}
+              className={`p-3 bg-[#0a0a0a] border rounded-xl transition-all cursor-pointer ${
+                adminTab === 'customers' ? 'border-[#D4AF37]/60 bg-[#D4AF37]/5' : 'border-white/10 hover:border-white/20'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] font-mono uppercase text-white/40">Clientes</span>
+                <Users className="w-3.5 h-3.5 text-white/40" />
+              </div>
+              <div className="text-xl font-serif text-white">{customers.length}</div>
+              <span className="text-[10px] text-emerald-400 font-mono">{customers.filter(c => c.status === 'VIP').length} VIP</span>
+            </div>
+
+            <div 
+              onClick={() => setAdminTab('quotations')}
+              className={`p-3 bg-[#0a0a0a] border rounded-xl transition-all cursor-pointer ${
+                adminTab === 'quotations' ? 'border-[#D4AF37]/60 bg-[#D4AF37]/5' : 'border-white/10 hover:border-white/20'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] font-mono uppercase text-white/40">Cotizaciones</span>
+                <FileText className="w-3.5 h-3.5 text-white/40" />
+              </div>
+              <div className="text-xl font-serif text-white">{quotations.length}</div>
+              <span className="text-[10px] text-white/40 font-mono">{formatPriceUsd(quotations.reduce((acc, q) => acc + q.finalPriceUsd, 0))}</span>
+            </div>
+
+            <div 
+              onClick={() => setAdminTab('inquiries')}
+              className={`p-3 bg-[#0a0a0a] border rounded-xl transition-all cursor-pointer col-span-2 sm:col-span-1 ${
+                adminTab === 'inquiries' ? 'border-[#D4AF37]/60 bg-[#D4AF37]/5' : 'border-white/10 hover:border-white/20'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] font-mono uppercase text-white/40">Leads</span>
+                <MessageSquare className="w-3.5 h-3.5 text-white/40" />
+              </div>
+              <div className="text-xl font-serif text-white">{inquiries.length}</div>
+              <span className={`text-[10px] font-mono ${pendingInquiriesCount > 0 ? 'text-rose-400 font-bold' : 'text-white/40'}`}>
+                {pendingInquiriesCount} pendientes
+              </span>
+            </div>
+          </div>
+
+          {/* ACTIVE MODULE CONTAINER */}
+          <div className="space-y-6">
 
       {/* ========================================================= */}
       {/* TAB 1: VEHICLE INVENTORY & COMPUTER IMAGE UPLOADER        */}
@@ -1035,24 +1541,24 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   ))}
                   {filteredCars.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="p-12 text-center">
-                        <div className="max-w-md mx-auto space-y-3">
-                          <CarFront className="w-10 h-10 text-white/20 mx-auto" />
+                      <td colSpan={6} className="p-10 text-center">
+                        <div className="max-w-md mx-auto space-y-2">
+                          <CarFront className="w-8 h-8 text-white/20 mx-auto" />
                           <p className="text-sm text-white font-serif">
                             {cars.length === 0 
-                              ? 'Base de datos de vehículos lista para producción' 
-                              : 'No se encontraron vehículos con los filtros aplicados'}
+                              ? 'No hay vehículos en inventario' 
+                              : 'No se encontraron vehículos'}
                           </p>
-                          <p className="text-xs text-white/50 leading-relaxed">
+                          <p className="text-xs text-white/50">
                             {cars.length === 0
-                              ? 'No hay unidades de prueba cargadas. Haz clic en "Cargar Vehículo" para dar de alta tu primera unidad oficial con ficha técnica, peritaje e imágenes.'
-                              : 'Prueba modificando el término de búsqueda.'}
+                              ? 'Haz clic en "Cargar Vehículo" para agregar una unidad.'
+                              : 'Prueba modificando los términos de búsqueda.'}
                           </p>
                           {cars.length === 0 && (
                             <button
                               type="button"
                               onClick={openAddCarModal}
-                              className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#D4AF37] text-black font-bold text-xs uppercase tracking-wider hover:bg-[#c4a02e] transition-colors mt-2"
+                              className="inline-flex items-center gap-2 px-4 py-2 bg-[#D4AF37] text-black font-bold text-xs uppercase tracking-wider hover:bg-[#c4a02e] transition-colors mt-2"
                             >
                               <Plus className="w-4 h-4" />
                               <span>Cargar Primer Vehículo</span>
@@ -1070,11 +1576,13 @@ export const AdminView: React.FC<AdminViewProps> = ({
       )}
 
       {/* ========================================================= */}
-      {/* TAB: VALORIZACIÓN DE STOCK (FINANCIAL INVENTORY & ASSETS) */}
+      {/* TAB: FINANZAS & GASTOS (SECTOR FINANCIERO COMPLETO)       */}
       {/* ========================================================= */}
-      {adminTab === 'valuation' && (
-        <AdminStockValuation
+      {(adminTab === 'finances' || adminTab === 'valuation') && (
+        <AdminFinancesManager
           cars={cars}
+          expenses={expenses}
+          onExpensesChanged={refreshLocalData}
           onEditCar={openEditCarModal}
         />
       )}
@@ -1219,24 +1727,24 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   ))}
                   {filteredCustomers.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="p-12 text-center">
-                        <div className="max-w-md mx-auto space-y-3">
-                          <Users className="w-10 h-10 text-white/20 mx-auto" />
+                      <td colSpan={5} className="p-10 text-center">
+                        <div className="max-w-md mx-auto space-y-2">
+                          <Users className="w-8 h-8 text-white/20 mx-auto" />
                           <p className="text-sm text-white font-serif">
                             {customers.length === 0 
-                              ? 'Base de clientes CRM vacía para producción' 
-                              : 'No se encontraron clientes con los filtros aplicados'}
+                              ? 'No hay clientes registrados' 
+                              : 'No se encontraron clientes'}
                           </p>
-                          <p className="text-xs text-white/50 leading-relaxed">
+                          <p className="text-xs text-white/50">
                             {customers.length === 0
-                              ? 'Aún no hay clientes registrados. Los clientes se crearán automáticamente al cotizar o puedes registrar un nuevo cliente manualmente.'
+                              ? 'Registra un cliente manualmente o se creará automáticamente al cotizar.'
                               : 'Prueba modificando los términos de búsqueda.'}
                           </p>
                           {customers.length === 0 && (
                             <button
                               type="button"
                               onClick={openAddCustModal}
-                              className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#D4AF37] text-black font-bold text-xs uppercase tracking-wider hover:bg-[#c4a02e] transition-colors mt-2"
+                              className="inline-flex items-center gap-2 px-4 py-2 bg-[#D4AF37] text-black font-bold text-xs uppercase tracking-wider hover:bg-[#c4a02e] transition-colors mt-2"
                             >
                               <Plus className="w-4 h-4" />
                               <span>Registrar Primer Cliente</span>
@@ -1400,24 +1908,24 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   ))}
                   {filteredQuotations.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="p-12 text-center">
-                        <div className="max-w-md mx-auto space-y-3">
-                          <FileText className="w-10 h-10 text-white/20 mx-auto" />
+                      <td colSpan={7} className="p-10 text-center">
+                        <div className="max-w-md mx-auto space-y-2">
+                          <FileText className="w-8 h-8 text-white/20 mx-auto" />
                           <p className="text-sm text-white font-serif">
                             {quotations.length === 0 
-                              ? 'Base de cotizaciones vacía para producción' 
-                              : 'No se encontraron cotizaciones con los filtros aplicados'}
+                              ? 'No hay cotizaciones registradas' 
+                              : 'No se encontraron cotizaciones'}
                           </p>
-                          <p className="text-xs text-white/50 leading-relaxed">
+                          <p className="text-xs text-white/50">
                             {quotations.length === 0
-                              ? 'Aún no hay cotizaciones emitidas. Puedes crear propuestas comerciales con cálculos de anticipo, cuotas fijas y toma de permutas.'
+                              ? 'Crea cotizaciones con cálculos de anticipo, cuotas y permutas.'
                               : 'Prueba modificando los términos de búsqueda.'}
                           </p>
                           {quotations.length === 0 && (
                             <button
                               type="button"
                               onClick={() => openAddQuotModal()}
-                              className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#D4AF37] text-black font-bold text-xs uppercase tracking-wider hover:bg-[#c4a02e] transition-colors mt-2"
+                              className="inline-flex items-center gap-2 px-4 py-2 bg-[#D4AF37] text-black font-bold text-xs uppercase tracking-wider hover:bg-[#c4a02e] transition-colors mt-2"
                             >
                               <Plus className="w-4 h-4" />
                               <span>Crear Primera Cotización</span>
@@ -1526,14 +2034,14 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   ))}
                   {inquiries.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="p-12 text-center">
-                        <div className="max-w-md mx-auto space-y-3">
-                          <MessageSquare className="w-10 h-10 text-white/20 mx-auto" />
+                      <td colSpan={6} className="p-10 text-center">
+                        <div className="max-w-md mx-auto space-y-2">
+                          <MessageSquare className="w-8 h-8 text-white/20 mx-auto" />
                           <p className="text-sm text-white font-serif">
                             Bandeja de consultas vacía
                           </p>
-                          <p className="text-xs text-white/50 leading-relaxed">
-                            No hay consultas pendientes en el sistema. Los mensajes enviados por los clientes desde la web aparecerán aquí en tiempo real.
+                          <p className="text-xs text-white/50">
+                            Las consultas de clientes desde la web aparecerán aquí en tiempo real.
                           </p>
                         </div>
                       </td>
@@ -1588,8 +2096,38 @@ export const AdminView: React.FC<AdminViewProps> = ({
               </div>
             </div>
           ))}
+
+          {reviews.length === 0 && (
+            <div className="col-span-full p-10 text-center bg-[#0a0a0a] border border-white/10 space-y-2">
+              <Star className="w-8 h-8 text-white/20 mx-auto" />
+              <p className="text-sm text-white font-serif">No hay reseñas registradas</p>
+              <p className="text-xs text-white/50">Las opiniones dejadas por los clientes aparecerán aquí para moderación.</p>
+            </div>
+          )}
         </div>
       )}
+
+      {/* ========================================================= */}
+      {/* TAB 6: BRANDS & MODELS CATALOG (DATABASE-SYNCED)           */}
+      {/* ========================================================= */}
+      {adminTab === 'brands' && (
+        <AdminBrandsManager />
+      )}
+
+      {/* ========================================================= */}
+      {/* TAB 7: TEAM & ADMINISTRATORS (EQUAL PRIVILEGES)           */}
+      {/* ========================================================= */}
+      {adminTab === 'team' && (
+        <AdminTeamManager 
+          currentUser={user}
+          onAdminsUpdated={() => {
+            refreshLocalData();
+          }}
+        />
+      )}
+          </div>
+        </div>
+      </div>
 
       {/* ========================================================= */}
       {/* MODAL 1: CAR ADD/EDIT WITH COMPUTER IMAGE UPLOADER        */}
@@ -1607,7 +2145,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
             </div>
 
             <form onSubmit={handleSaveCar} className="space-y-6 text-xs">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-4">
                 <div>
                   <label className="block text-[10px] uppercase tracking-widest text-white/50 mb-1">Título Publicación *</label>
                   <input
@@ -1620,32 +2158,30 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   />
                 </div>
 
-                <div>
-                  <label className="block text-[10px] uppercase tracking-widest text-white/50 mb-1">Marca *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Ej: Porsche"
-                    value={formBrand}
-                    onChange={(e) => setFormBrand(e.target.value)}
-                    className="w-full bg-[#0a0a0a] border border-white/10 px-3 py-2 text-white text-xs focus:outline-none focus:border-[#D4AF37]"
+                {/* SELECTORES DESPLEGABLES DE MARCA Y MODELO CON AGREGADO MANUAL Y BASE DE DATOS */}
+                <div className="bg-[#050505] border border-white/10 p-4">
+                  <BrandModelSelector
+                    selectedBrand={formBrand}
+                    selectedModel={formModel}
+                    onBrandChange={(b) => {
+                      setFormBrand(b);
+                      if (!formTitle || formTitle === `${formBrand} ${formModel}`) {
+                        setFormTitle(`${b} ${formModel || ''}`.trim());
+                      }
+                    }}
+                    onModelChange={(m) => {
+                      setFormModel(m);
+                      if (!formTitle || formTitle === `${formBrand} ${formModel}`) {
+                        setFormTitle(`${formBrand} ${m}`.trim());
+                      }
+                    }}
+                    brandLabel="Marca (Desplegable o Nueva Marca) *"
+                    modelLabel="Modelo (Desplegable o Nuevo Modelo) *"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                <div>
-                  <label className="block text-[10px] uppercase tracking-widest text-white/50 mb-1">Modelo *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="911 Carrera S"
-                    value={formModel}
-                    onChange={(e) => setFormModel(e.target.value)}
-                    className="w-full bg-[#0a0a0a] border border-white/10 px-3 py-2 text-white text-xs focus:outline-none focus:border-[#D4AF37]"
-                  />
-                </div>
-
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-[10px] uppercase tracking-widest text-white/50 mb-1">Año *</label>
                   <input
@@ -2037,9 +2573,17 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
               <button
                 type="submit"
-                className="w-full py-3.5 bg-[#D4AF37] hover:bg-[#c4a02e] text-black font-bold uppercase tracking-[0.2em] text-[10px] mt-4 transition-all"
+                disabled={isSavingCar}
+                className="w-full py-3.5 bg-[#D4AF37] hover:bg-[#c4a02e] text-black font-bold uppercase tracking-[0.2em] text-[10px] mt-4 transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
               >
-                {editingCar ? 'Guardar Cambios' : 'Publicar Vehículo en Inventario'}
+                {isSavingCar ? (
+                  <>
+                    <span className="w-3.5 h-3.5 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                    <span>Guardando y Sincronizando en Base de Datos...</span>
+                  </>
+                ) : (
+                  editingCar ? 'Guardar Cambios' : 'Publicar Vehículo en Inventario'
+                )}
               </button>
             </form>
           </div>

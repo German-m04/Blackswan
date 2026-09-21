@@ -83,6 +83,58 @@ export interface VehicleInspection {
 export type CustomerStatus = 'VIP' | 'Cliente Activo' | 'Prospecto' | 'Inactivo';
 export type QuotationStatus = 'Borrador' | 'Enviada' | 'En Negociación' | 'Aprobada' | 'Rechazada';
 
+// -----------------------------------------------------------------
+// SECTOR FINANZAS & GESTIÓN DE GASTOS
+// -----------------------------------------------------------------
+export type ExpenseType = 'Directo de Vehículo' | 'Operativo / Concesionario';
+
+export type ExpenseCategory = 
+  | 'Taller Mecánico & Mantenimiento'
+  | 'Chapa y Pintura'
+  | 'Repuestos y Neumáticos'
+  | 'Detailing & Estética'
+  | 'Gestoría, Transferencias & Patentes'
+  | 'Flete & Logística'
+  | 'Verificación Técnica & Peritajes'
+  | 'Alquiler Salón & Showroom'
+  | 'Sueldos, Comisiones & Honorarios'
+  | 'Publicidad, Marketing & Redes'
+  | 'Servicios Públicos (Luz, Internet, etc.)'
+  | 'Impuestos, Tasas & Contabilidad'
+  | 'Seguros de Salón & Flota'
+  | 'Mantenimiento de Instalaciones'
+  | 'Otro Gasto';
+
+export type ExpensePaymentMethod = 
+  | 'Efectivo USD' 
+  | 'Efectivo ARS' 
+  | 'Transferencia Bancaria' 
+  | 'Cheque' 
+  | 'Tarjeta / MP' 
+  | 'Otro';
+
+export type ExpenseStatus = 'Pagado' | 'Pendiente';
+
+export interface Expense {
+  id: string;
+  concept: string; // Concepto / detalle del gasto
+  type: ExpenseType; // Gasto directo de auto o gasto operativo/fijo
+  category: ExpenseCategory;
+  carId?: string; // ID del vehículo asignado si es directo
+  carTitle?: string; // Título / Patente del vehículo
+  amountUsd: number; // Monto en dólares
+  amountArs?: number; // Monto en pesos argentinos
+  exchangeRate?: number; // Tipo de cambio aplicado si fue en ARS
+  date: string; // YYYY-MM-DD
+  paymentMethod: ExpensePaymentMethod;
+  status: ExpenseStatus;
+  supplier?: string; // Proveedor / Taller / Prestador del servicio
+  receiptNumber?: string; // Nº Factura / Recibo / Comprobante
+  notes?: string; // Observaciones
+  impactCarExpenses?: boolean; // Si actualizó automáticamente el purchaseExpensesUsd del auto
+  createdAt: string;
+}
+
 export interface Customer {
   id: string;
   name: string;
@@ -215,3 +267,14 @@ export interface VehicleBrand {
   createdAt?: string;
   updatedAt?: string;
 }
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  name: string;
+  role: 'Administrador General' | 'Administrador' | 'Socio Gerente' | 'Ventas / Inventario';
+  addedAt: string;
+  addedBy?: string;
+  active: boolean;
+}
+

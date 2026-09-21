@@ -101,7 +101,7 @@ export const CarDetailModal: React.FC<CarDetailModalProps> = ({ car, onClose }) 
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/90 backdrop-blur-md flex items-center justify-center p-3 sm:p-6">
-      <div className="relative w-full max-w-5xl bg-[#050505] border border-white/10 shadow-2xl overflow-hidden my-auto max-h-[94vh] flex flex-col">
+      <div className="relative w-full max-w-5xl bg-[#050505] border border-white/10 shadow-2xl overflow-hidden my-auto max-h-[94vh] flex flex-col rounded-2xl">
         {/* Modal Header */}
         <div className="flex items-center justify-between p-4 sm:p-5 border-b border-white/10 bg-[#0a0a0a]">
           <div>
@@ -110,7 +110,7 @@ export const CarDetailModal: React.FC<CarDetailModalProps> = ({ car, onClose }) 
                 {car.brand} • {car.year} • {car.bodyType}
               </span>
               {car.licensePlate && (
-                <span className="px-2 py-0.5 text-[9px] font-mono font-bold tracking-widest bg-white/10 text-white border border-white/20">
+                <span className="px-2 py-0.5 text-[9px] font-mono font-bold tracking-widest bg-white/10 text-white border border-white/20 rounded-md">
                   DOMINIO {car.licensePlate}
                 </span>
               )}
@@ -121,7 +121,7 @@ export const CarDetailModal: React.FC<CarDetailModalProps> = ({ car, onClose }) 
           </div>
           <button 
             onClick={onClose}
-            className="p-2 bg-[#050505] text-white/40 hover:text-white hover:border-[#D4AF37] border border-white/10 transition-colors"
+            className="p-2 bg-[#050505] text-white/40 hover:text-white hover:border-[#D4AF37] border border-white/10 transition-colors rounded-lg cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -242,7 +242,7 @@ export const CarDetailModal: React.FC<CarDetailModalProps> = ({ car, onClose }) 
                   href={`https://wa.me/${contactPhoneClean}?text=${whatsappMessage}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full py-3 px-4 font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-all text-[10px] uppercase tracking-[0.2em] flex items-center justify-center gap-2"
+                  className="w-full py-3 px-4 font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-all text-[10px] uppercase tracking-[0.2em] flex items-center justify-center gap-2 rounded-lg shadow-md"
                 >
                   <MessageCircle className="w-4 h-4 fill-white" />
                   <span>{car.priceOnDemand ? 'Preguntar Precio / WhatsApp' : 'WhatsApp Directo'}</span>
@@ -250,7 +250,7 @@ export const CarDetailModal: React.FC<CarDetailModalProps> = ({ car, onClose }) 
 
                 <button
                   onClick={() => setActiveTab('contact')}
-                  className="w-full py-3 px-4 font-bold bg-[#D4AF37] hover:bg-[#c4a02e] text-black transition-all text-[10px] uppercase tracking-[0.2em] flex items-center justify-center gap-2"
+                  className="btn-gold-textured w-full py-3 px-4 font-bold text-[10px] uppercase tracking-[0.2em] flex items-center justify-center gap-2 rounded-lg cursor-pointer"
                 >
                   <Send className="w-3.5 h-3.5" />
                   <span>Agendar Visita / Inspección</span>
@@ -258,7 +258,7 @@ export const CarDetailModal: React.FC<CarDetailModalProps> = ({ car, onClose }) 
               </div>
 
               {/* Guarantees / Inspection Status Box */}
-              <div className="bg-[#0a0a0a] border border-white/10 p-4 space-y-2 text-xs">
+              <div className="bg-[#0a0a0a] border border-white/10 p-4 space-y-2 text-xs rounded-xl">
                 <div className="flex items-center gap-2 text-[#D4AF37] text-[10px] font-bold uppercase tracking-wider">
                   <ShieldCheck className="w-3.5 h-3.5" />
                   <span>Ficha & Certificación Black Swan</span>

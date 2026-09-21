@@ -48,7 +48,7 @@ export const CarCard: React.FC<CarCardProps> = ({ car, onSelect }) => {
       viewport={{ once: true, margin: '-40px' }}
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
       whileHover={{ y: -6 }}
-      className={`group bg-[#0a0a0a] border rounded-none transition-all duration-300 flex flex-col justify-between hover:border-[#D4AF37]/70 hover:shadow-[0_16px_36px_rgba(212,175,55,0.12)] relative overflow-hidden ${
+      className={`group bg-[#0a0a0a] border rounded-xl transition-all duration-300 flex flex-col justify-between hover:border-[#D4AF37]/70 hover:shadow-[0_16px_36px_rgba(212,175,55,0.12)] relative overflow-hidden ${
         car.featured ? 'border-[#D4AF37]/40' : 'border-white/10'
       }`}
     >
@@ -69,13 +69,13 @@ export const CarCard: React.FC<CarCardProps> = ({ car, onSelect }) => {
           <div className="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none z-10">
             <div className="flex flex-wrap gap-1.5">
               {car.featured && (
-                <span className="px-2.5 py-1 text-[9px] uppercase font-bold tracking-widest bg-[#D4AF37] text-black flex items-center gap-1 shadow-md">
+                <span className="px-2.5 py-1 text-[9px] uppercase font-bold tracking-widest bg-[#D4AF37] text-black flex items-center gap-1 shadow-md rounded-md">
                   <Tag className="w-2.5 h-2.5 fill-black" />
                   Destacado
                 </span>
               )}
               {car.singleOwner && (
-                <span className="px-2 py-0.5 text-[9px] uppercase tracking-wider bg-black/80 border border-white/20 text-white/80 backdrop-blur-md">
+                <span className="px-2 py-0.5 text-[9px] uppercase tracking-wider bg-black/80 border border-white/20 text-white/80 backdrop-blur-md rounded-md">
                   Único Dueño
                 </span>
               )}
@@ -83,7 +83,7 @@ export const CarCard: React.FC<CarCardProps> = ({ car, onSelect }) => {
 
             {/* Status Pill */}
             {!isAvailable && (
-              <span className={`px-2.5 py-1 text-[9px] uppercase tracking-widest font-bold ${
+              <span className={`px-2.5 py-1 text-[9px] uppercase tracking-widest font-bold rounded-md ${
                 isReserved 
                   ? 'bg-amber-600/90 text-white border border-amber-400/40' 
                   : 'bg-rose-900/90 text-white border border-rose-500/30'
@@ -146,13 +146,13 @@ export const CarCard: React.FC<CarCardProps> = ({ car, onSelect }) => {
         <div className="p-5 space-y-4">
           {/* Title & Brand */}
           <div>
-            <div className="text-[10px] uppercase tracking-[0.25em] text-[#D4AF37] mb-1 font-semibold flex items-center justify-between">
+            <div className="text-[9px] uppercase font-mono tracking-[0.25em] text-[#D4AF37] mb-1.5 flex items-center justify-between">
               <span>{car.brand} • {car.bodyType}</span>
-              <span className="text-white/30 text-[9px] font-mono">{car.color}</span>
+              <span className="text-white/35 text-[9px] font-mono">{car.color}</span>
             </div>
             <h3 
               onClick={() => onSelect(car)}
-              className="text-base font-serif text-white group-hover:text-[#D4AF37] transition-colors cursor-pointer line-clamp-1 font-normal"
+              className="text-lg font-serif text-white group-hover:text-[#D4AF37] transition-colors cursor-pointer line-clamp-1 font-light tracking-wide"
             >
               {car.title}
             </h3>
@@ -163,13 +163,13 @@ export const CarCard: React.FC<CarCardProps> = ({ car, onSelect }) => {
             {car.priceOnDemand ? (
               <div className="w-full flex items-center justify-between">
                 <div>
-                  <span className="text-[9px] text-white/40 uppercase tracking-widest block font-medium">Precio</span>
-                  <span className="text-xl font-serif text-emerald-400 font-bold">
+                  <span className="text-[9px] text-white/40 uppercase font-mono tracking-[0.2em] block font-normal">Valor de Referencia</span>
+                  <span className="text-lg font-serif text-emerald-400 font-normal">
                     A consultar
                   </span>
                 </div>
                 {car.licensePlate && (
-                  <span className="px-2 py-1 bg-white/10 text-white font-mono text-[10px] font-bold tracking-widest border border-white/20">
+                  <span className="px-2 py-0.5 bg-white/10 text-white font-mono text-[9px] tracking-widest border border-white/20">
                     {car.licensePlate}
                   </span>
                 )}
@@ -177,13 +177,13 @@ export const CarCard: React.FC<CarCardProps> = ({ car, onSelect }) => {
             ) : (
               <>
                 <div>
-                  <span className="text-[9px] text-white/40 uppercase tracking-widest block font-medium">Precio Contado</span>
-                  <span className="text-2xl font-serif text-[#D4AF37] group-hover:scale-105 transition-transform origin-left inline-block">
+                  <span className="text-[9px] text-white/40 uppercase font-mono tracking-[0.2em] block font-normal">Precio de Venta</span>
+                  <span className="text-2xl font-serif text-[#D4AF37] font-normal tracking-tight group-hover:scale-105 transition-transform origin-left inline-block">
                     {formatPriceUsd(car.priceUsd)}
                   </span>
                 </div>
                 <div className="text-right">
-                  <span className="text-[9px] text-white/30 uppercase tracking-wider block">Equivalente ARS</span>
+                  <span className="text-[9px] text-white/30 uppercase font-mono tracking-wider block">Equiv. ARS</span>
                   <span className="text-xs font-mono text-white/70">
                     {formatPriceArs(car.priceArs)}
                   </span>
@@ -194,27 +194,27 @@ export const CarCard: React.FC<CarCardProps> = ({ car, onSelect }) => {
 
           {/* Key Features Grid */}
           <div className="grid grid-cols-3 gap-2 text-[11px] text-white/60 pt-1">
-            <div className="flex items-center gap-1.5 bg-[#050505] p-2 border border-white/5 group-hover:border-white/15 transition-colors">
+            <div className="flex items-center gap-1.5 bg-[#050505] p-2 border border-white/5 group-hover:border-white/15 transition-colors rounded-lg">
               <Calendar className="w-3 h-3 text-[#D4AF37] shrink-0" />
-              <span>{car.year}</span>
+              <span className="font-mono text-[11px]">{car.year}</span>
             </div>
-            <div className="flex items-center gap-1.5 bg-[#050505] p-2 border border-white/5 group-hover:border-white/15 transition-colors">
+            <div className="flex items-center gap-1.5 bg-[#050505] p-2 border border-white/5 group-hover:border-white/15 transition-colors rounded-lg">
               <Gauge className="w-3 h-3 text-[#D4AF37] shrink-0" />
-              <span className="truncate">{car.hours ? car.hours : formatKm(car.km)}</span>
+              <span className="truncate font-mono text-[10px]">{car.hours ? car.hours : formatKm(car.km)}</span>
             </div>
-            <div className="flex items-center gap-1.5 bg-[#050505] p-2 border border-white/5 group-hover:border-white/15 transition-colors">
+            <div className="flex items-center gap-1.5 bg-[#050505] p-2 border border-white/5 group-hover:border-white/15 transition-colors rounded-lg">
               <Zap className="w-3 h-3 text-[#D4AF37] shrink-0" />
-              <span className="truncate">{car.transmission}</span>
+              <span className="truncate text-[10px]">{car.transmission}</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* Card Footer Actions */}
-      <div className="p-5 pt-0 grid grid-cols-2 gap-2 mt-2">
+      <div className="p-5 pt-0 grid grid-cols-2 gap-2.5 mt-2">
         <button
           onClick={() => onSelect(car)}
-          className="w-full py-2.5 px-3 text-[10px] uppercase font-bold tracking-widest text-white/80 bg-white/5 hover:bg-white/15 hover:text-white border border-white/10 transition-all flex items-center justify-center gap-1.5"
+          className="btn-dark-textured w-full py-2.5 px-3 text-[10px] uppercase font-medium tracking-[0.16em] flex items-center justify-center gap-1.5 cursor-pointer rounded-lg"
         >
           <Eye className="w-3 h-3 text-[#D4AF37]" />
           <span>Ficha Técnica</span>
@@ -224,7 +224,7 @@ export const CarCard: React.FC<CarCardProps> = ({ car, onSelect }) => {
           href={`https://wa.me/5491140008888?text=${whatsappMessage}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="w-full py-2.5 px-3 text-[10px] uppercase font-bold tracking-widest text-black bg-[#D4AF37] hover:bg-[#c4a02e] transition-all flex items-center justify-center gap-1.5 shadow-sm"
+          className="btn-gold-textured w-full py-2.5 px-3 text-[10px] uppercase font-semibold tracking-[0.16em] flex items-center justify-center gap-1.5 rounded-lg"
         >
           <MessageCircle className="w-3 h-3" />
           <span>Consultar</span>
