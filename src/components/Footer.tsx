@@ -11,12 +11,16 @@ import {
   MessageCircle,
   Car
 } from 'lucide-react';
+import { AgencySettings } from '../types';
 
 interface FooterProps {
   onNavigate: (tab: string) => void;
+  agencySettings?: AgencySettings;
 }
 
-export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
+export const Footer: React.FC<FooterProps> = ({ onNavigate, agencySettings }) => {
+  const settings = agencySettings;
+
   return (
     <footer className="bg-[#050505] border-t border-white/5 text-white/50 text-xs">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -25,7 +29,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
           <div className="space-y-4">
             <div className="flex items-center space-x-3">
               <a 
-                href="https://instagram.com" 
+                href={settings?.instagramUrl || "https://instagram.com"} 
                 target="_blank" 
                 rel="noreferrer"
                 className="w-8 h-8 rounded bg-[#0a0a0a] border border-white/10 flex items-center justify-center text-white/50 hover:text-[#D4AF37] hover:border-[#D4AF37]/50 transition-all"
@@ -34,7 +38,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
                 <Instagram className="w-3.5 h-3.5" />
               </a>
               <a 
-                href="https://facebook.com" 
+                href={settings?.facebookUrl || "https://facebook.com"} 
                 target="_blank" 
                 rel="noreferrer"
                 className="w-8 h-8 rounded bg-[#0a0a0a] border border-white/10 flex items-center justify-center text-white/50 hover:text-[#D4AF37] hover:border-[#D4AF37]/50 transition-all"
@@ -43,7 +47,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
                 <Facebook className="w-3.5 h-3.5" />
               </a>
               <a 
-                href="https://wa.me/5491140008888" 
+                href={`https://wa.me/${settings?.whatsappClean || '5491140008888'}?text=${encodeURIComponent(settings?.whatsappDefaultMessage || 'Hola Black Swan, quisiera consultar sobre un vehículo.')}`} 
                 target="_blank" 
                 rel="noreferrer"
                 className="w-8 h-8 rounded bg-[#0a0a0a] border border-white/10 flex items-center justify-center text-emerald-400 hover:bg-emerald-950/40 hover:border-emerald-500/50 transition-all"
@@ -106,15 +110,17 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
             <div className="space-y-3 text-xs">
               <div className="flex items-start gap-2.5">
                 <MapPin className="w-3.5 h-3.5 text-[#D4AF37] shrink-0 mt-0.5" />
-                <span className="text-white/70">Av. del Libertador 4800, Vicente López</span>
+                <span className="text-white/70">
+                  {settings?.fullAddress || 'Av. del Libertador 4800, Vicente López'}
+                </span>
               </div>
               <div className="flex items-start gap-2.5">
                 <Clock className="w-3.5 h-3.5 text-[#D4AF37] shrink-0 mt-0.5" />
                 <div>
                   <p className="text-white/80 font-medium">Lunes a Viernes:</p>
-                  <p className="text-white/40">09:00 hs a 19:00 hs</p>
+                  <p className="text-white/40">{settings?.scheduleWeekdays || '09:00 hs a 19:00 hs'}</p>
                   <p className="text-white/80 font-medium mt-1">Sábados:</p>
-                  <p className="text-white/40">09:00 hs a 14:00 hs</p>
+                  <p className="text-white/40">{settings?.scheduleSaturdays || '09:00 hs a 14:00 hs'}</p>
                 </div>
               </div>
             </div>
@@ -126,18 +132,18 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
               Atención Directa
             </h4>
             <div className="space-y-3 text-xs">
-              <a href="tel:+541140008888" className="flex items-center gap-2.5 hover:text-[#D4AF37] transition-colors">
+              <a href={`tel:${settings?.phoneClean || '+541140008888'}`} className="flex items-center gap-2.5 hover:text-[#D4AF37] transition-colors">
                 <Phone className="w-3.5 h-3.5 text-[#D4AF37] shrink-0" />
-                <span className="text-white/80">+54 (11) 4000-8888</span>
+                <span className="text-white/80">{settings?.phone || '+54 (11) 4000-8888'}</span>
               </a>
-              <a href="mailto:inquiry@blackswan.cars" className="flex items-center gap-2.5 hover:text-[#D4AF37] transition-colors">
+              <a href={`mailto:${settings?.email || 'inquiry@blackswan.cars'}`} className="flex items-center gap-2.5 hover:text-[#D4AF37] transition-colors">
                 <Mail className="w-3.5 h-3.5 text-[#D4AF37] shrink-0" />
-                <span className="text-white/80">inquiry@blackswan.cars</span>
+                <span className="text-white/80">{settings?.email || 'inquiry@blackswan.cars'}</span>
               </a>
               <div className="p-3 rounded bg-[#0a0a0a] border border-white/10 mt-2">
                 <div className="flex items-center gap-2 text-[#D4AF37] font-semibold text-xs mb-1 uppercase tracking-wider">
                   <ShieldCheck className="w-3.5 h-3.5" />
-                  <span>Garantía Black Swan</span>
+                  <span>Garantía {settings?.agencyShortName || 'Black Swan'}</span>
                 </div>
                 <p className="text-[11px] text-white/40 font-light">
                   6 meses de garantía mecánica y certificación de dominio de precisión en cada unidad.

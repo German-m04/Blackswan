@@ -7,14 +7,20 @@ import {
   Calendar, 
   Car, 
   CheckCircle2, 
-  ExternalLink,
-  MessageCircle,
-  Coffee,
-  Shield
+  ExternalLink, 
+  MessageCircle, 
+  Coffee, 
+  Shield 
 } from 'lucide-react';
+import { AgencySettings } from '../types';
 
-export const InteractiveMap: React.FC = () => {
+interface InteractiveMapProps {
+  agencySettings?: AgencySettings;
+}
+
+export const InteractiveMap: React.FC<InteractiveMapProps> = ({ agencySettings }) => {
   const [selectedRoute, setSelectedRoute] = useState<'cabaro' | 'norte' | 'oeste'>('cabaro');
+  const settings = agencySettings;
 
   return (
     <div className="space-y-8">
@@ -24,7 +30,7 @@ export const InteractiveMap: React.FC = () => {
           <div className="lg:col-span-7 space-y-4">
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/5 border border-white/10 text-[#D4AF37] text-[10px] font-semibold uppercase tracking-[0.25em]">
               <MapPin className="w-3.5 h-3.5" />
-              <span>Showroom Central Black Swan</span>
+              <span>{settings?.showroomName || 'Showroom Central Black Swan'}</span>
             </div>
 
             <h2 className="text-2xl sm:text-4xl font-serif font-light text-white">
@@ -32,22 +38,16 @@ export const InteractiveMap: React.FC = () => {
             </h2>
 
             <p className="text-white/40 text-xs font-light leading-relaxed">
-              Ubicados sobre la arteria principal de Zona Norte, contamos con un espacio boutique de exhibición climatizado de más de 800m², espresso lounge y estacionamiento privado para nuestros clientes.
+              {settings?.showroomDescription || 'Ubicados sobre la arteria principal de Zona Norte, contamos con un espacio boutique de exhibición climatizado de más de 800m², espresso lounge y estacionamiento privado para nuestros clientes.'}
             </p>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs text-white/70 pt-2">
-              <div className="flex items-center gap-2 bg-[#050505] p-3 border border-white/5">
-                <Coffee className="w-3.5 h-3.5 text-[#D4AF37] shrink-0" />
-                <span className="text-[11px]">Espresso Lounge</span>
-              </div>
-              <div className="flex items-center gap-2 bg-[#050505] p-3 border border-white/5">
-                <Shield className="w-3.5 h-3.5 text-[#D4AF37] shrink-0" />
-                <span className="text-[11px]">Parking Custodiado</span>
-              </div>
-              <div className="flex items-center gap-2 bg-[#050505] p-3 border border-white/5 col-span-2 sm:col-span-1">
-                <Car className="w-3.5 h-3.5 text-[#D4AF37] shrink-0" />
-                <span className="text-[11px]">Pista Test Drive</span>
-              </div>
+            <div className="flex flex-wrap gap-2.5 text-xs text-white/70 pt-2">
+              {(settings?.locationFeatures || ['Espresso Lounge', 'Parking Custodiado', 'Pista Test Drive', 'Showroom Climatizado 800m²']).map((feat, idx) => (
+                <div key={idx} className="flex items-center gap-2 bg-[#050505] px-3.5 py-2 border border-white/5 rounded-lg">
+                  <Coffee className="w-3.5 h-3.5 text-[#D4AF37] shrink-0" />
+                  <span className="text-[11px]">{feat}</span>
+                </div>
+              ))}
             </div>
           </div>
 
@@ -61,7 +61,9 @@ export const InteractiveMap: React.FC = () => {
                 <MapPin className="w-3.5 h-3.5 text-[#D4AF37] shrink-0 mt-0.5" />
                 <div>
                   <span className="text-white/80 font-semibold block uppercase text-[10px] tracking-wider">Ubicación:</span>
-                  <span className="text-white/40 font-light">Av. del Libertador 4800, Vicente López</span>
+                  <span className="text-white/40 font-light">
+                    {settings?.fullAddress || 'Av. del Libertador 4800, Vicente López'}
+                  </span>
                 </div>
               </div>
 
@@ -69,8 +71,11 @@ export const InteractiveMap: React.FC = () => {
                 <Clock className="w-3.5 h-3.5 text-[#D4AF37] shrink-0 mt-0.5" />
                 <div>
                   <span className="text-white/80 font-semibold block uppercase text-[10px] tracking-wider">Horarios:</span>
-                  <p className="text-white/40 font-light">Lunes a Viernes: 09:00 a 19:00 hs</p>
-                  <p className="text-white/40 font-light">Sábados: 09:00 a 14:00 hs</p>
+                  <p className="text-white/40 font-light">Lunes a Viernes: {settings?.scheduleWeekdays || '09:00 a 19:00 hs'}</p>
+                  <p className="text-white/40 font-light">Sábados: {settings?.scheduleSaturdays || '09:00 a 14:00 hs'}</p>
+                  {settings?.scheduleSundays && (
+                    <p className="text-white/30 font-light text-[11px]">Domingos: {settings.scheduleSundays}</p>
+                  )}
                 </div>
               </div>
 
@@ -78,13 +83,13 @@ export const InteractiveMap: React.FC = () => {
                 <Phone className="w-3.5 h-3.5 text-[#D4AF37] shrink-0 mt-0.5" />
                 <div>
                   <span className="text-white/80 font-semibold block uppercase text-[10px] tracking-wider">Atención Telefónica:</span>
-                  <span className="text-white/40 font-light">+54 (11) 4000-8888</span>
+                  <span className="text-white/40 font-light">{settings?.phone || '+54 (11) 4000-8888'}</span>
                 </div>
               </div>
             </div>
 
             <a
-              href="https://maps.google.com/?q=Av.+del+Libertador+4800,+Vicente+Lopez"
+              href={settings?.googleMapsUrl || "https://maps.google.com/?q=Av.+del+Libertador+4800,+Vicente+Lopez"}
               target="_blank"
               rel="noopener noreferrer"
               className="w-full py-3 px-4 font-bold bg-[#D4AF37] hover:bg-[#c4a02e] text-black transition-all text-[10px] uppercase tracking-[0.2em] flex items-center justify-center gap-2"

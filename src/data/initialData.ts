@@ -1,4 +1,4 @@
-import { Car, Review, Inquiry, Customer, Quotation } from '../types';
+import { Car, Review, Inquiry, Customer, Quotation, AgencySettings } from '../types';
 
 export const INITIAL_CARS: Car[] = [];
 
@@ -335,6 +335,12 @@ export const DEMO_SAMPLE_CARS: Car[] = [
     vtvValidUntil: '10/2026',
     singleOwner: true,
     officialServices: true,
+    isConsignment: true,
+    consignmentOwnerName: 'Esteban Rossi',
+    consignmentOwnerPhone: '+54 9 11 4982-3311',
+    consignmentAgreedPayoutUsd: 36000,
+    consignmentCommissionRate: 5,
+    consignmentNotes: 'Contrato de consignación exclusiva por 60 días. Verificación policial y 08 firmado.',
     createdAt: '2026-07-18'
   },
   {
@@ -632,4 +638,60 @@ export const DEMO_SAMPLE_QUOTATIONS: Quotation[] = [
     createdAt: '2026-07-25'
   }
 ];
+
+export const DEFAULT_AGENCY_SETTINGS: AgencySettings = {
+  // 1. Identidad de la Agencia & Encabezados
+  agencyName: 'BLACK SWAN Luxury Cars',
+  agencyShortName: 'BLACK SWAN',
+  agencySlogan: 'Casa de Automóviles Seleccionados',
+  heroSubtitle: 'Transparencia absoluta en vehículos premium y seminuevos',
+  heroDescription: 'Curamos cada unidad con rigurosidad técnica y jurídica. Brindamos un servicio integral de adquisición, permuta y consignación física con peritaje mecánico previo y documentación garantizada para entrega inmediata.',
+
+  // 2. Domicilio & Showroom
+  showroomName: 'Showroom Central Black Swan',
+  address: 'Av. del Libertador 4800',
+  city: 'Vicente López, Buenos Aires',
+  fullAddress: 'Av. del Libertador 4800, Vicente López',
+  googleMapsUrl: 'https://maps.google.com/?q=Av.+del+Libertador+4800,+Vicente+Lopez',
+  locationFeatures: ['Espresso Lounge', 'Parking Custodiado', 'Pista Test Drive', 'Showroom Climatizado 800m²'],
+  showroomDescription: 'Ubicados sobre la arteria principal de Zona Norte, contamos con un espacio boutique de exhibición climatizado de más de 800m², espresso lounge y estacionamiento privado para nuestros clientes.',
+
+  // 3. Horarios de Atención
+  scheduleWeekdays: '09:00 hs a 19:00 hs',
+  scheduleSaturdays: '09:00 hs a 14:00 hs',
+  scheduleSundays: 'Cerrado (Atención con Cita Previa)',
+  scheduleNote: 'Reserve un horario preferencial para ser recibido por un ejecutivo comercial en nuestro showroom.',
+
+  // 4. Canales de Contacto Directo & Redes
+  phone: '+54 (11) 4000-8888',
+  phoneClean: '+541140008888',
+  whatsapp: '+54 9 11 4000-8888',
+  whatsappClean: '5491140008888',
+  whatsappDefaultMessage: 'Hola Black Swan, quisiera realizar una consulta por un vehículo.',
+  email: 'inquiry@blackswan.cars',
+  instagramUrl: 'https://instagram.com',
+  facebookUrl: 'https://facebook.com',
+  tiktokUrl: '',
+
+  // 5. Estadísticas & Métricas de Inicio
+  statsDeliveredCars: '+500',
+  statsDeliveredLabel: 'Unidades Entregadas',
+  statsInspectionPoints: '150',
+  statsInspectionLabel: 'Puntos de Peritaje',
+  statsVerifiedDomain: '100%',
+  statsVerifiedLabel: 'Dominio Verificado',
+  statsRegistrationHours: '48hs',
+  statsRegistrationLabel: 'Gestión Registral',
+
+  // 6. Pilares Institucionales de Calidad (Página de Inicio)
+  pillarsTitle: 'Rigurosidad Técnica & Seguridad Jurídica',
+  pillarsSubtitle: 'Cada vehículo es sometido a estrictos controles antes de su exhibición para asegurar máxima confiabilidad y entrega inmediata.',
+  pillar1Title: 'Peritaje Técnico de 150 Puntos',
+  pillar1Desc: 'Diagnóstico electrónico por escáner, verificación de tren rodante, estado de frenos, chasis y medición micrométrica de pintura.',
+  pillar2Title: 'Seguridad Documental Garantizada',
+  pillar2Desc: 'Auditoría registral completa ante DNRPA. Entregas 100% libres de gravámenes, inhibiciones, multas o deudas de patentes.',
+  pillar3Title: 'Valuación Transparente',
+  pillar3Desc: 'Cotización profesional de su unidad usada referenciada a valores reales de mercado para aplicarlo como parte de pago.'
+};
+
 

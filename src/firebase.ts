@@ -25,7 +25,7 @@ import {
   orderBy
 } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
-import { Car, Review, Inquiry, Customer, Quotation, VehicleBrand, AdminUser, Expense } from './types';
+import { Car, Review, Inquiry, Customer, Quotation, VehicleBrand, AdminUser, Expense, AgencySettings } from './types';
 import { formatBrandId } from './data/initialBrands';
 import { 
   INITIAL_CARS, 
@@ -37,7 +37,8 @@ import {
   DEMO_SAMPLE_REVIEWS,
   DEMO_SAMPLE_INQUIRIES,
   DEMO_SAMPLE_CUSTOMERS,
-  DEMO_SAMPLE_QUOTATIONS
+  DEMO_SAMPLE_QUOTATIONS,
+  DEFAULT_AGENCY_SETTINGS
 } from './data/initialData';
 
 // 1. Initialize Firebase Services
@@ -939,6 +940,60 @@ class FirebaseSyncService {
       await deleteDoc(doc(db, 'admins', adminId));
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, path);
+    }
+  }
+
+  // --- AGENCY SETTINGS (Domicilio, Horarios & Contenido de Inicio) ---
+  public subscribeAgencySettings(onUpdate: (settings: AgencySettings) => void) {
+    const path = 'system/agency';
+    return onSnapshot(
+      doc(db, 'system', 'agency'),
+      (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.data() as AgencySettings;
+          onUpdate({
+            ...DEFAULT_AGENCY_SETTINGS,
+            ...data
+          });
+        }
+      },
+      (error) => {
+        console.warn('AgencySettings onSnapshot warning:', error.message);
+      }
+    );
+  }
+
+  public async getAgencySettings(): Promise<AgencySettings | null> {
+    const path = 'system/agency';
+    try {
+      const snap = await getDocs(collection(db, 'system'));
+      let found: AgencySettings | null = null;
+      snap.forEach((d) => {
+        if (d.id === 'agency') {
+          found = {
+            ...DEFAULT_AGENCY_SETTINGS,
+            ...(d.data() as AgencySettings)
+          };
+        }
+      });
+      return found;
+    } catch (err) {
+      console.warn('Error fetching agency settings from Firestore:', err);
+      return null;
+    }
+  }
+
+  public async saveAgencySettings(settings: AgencySettings): Promise<void> {
+    const path = 'system/agency';
+    try {
+      const payload: AgencySettings = {
+        ...DEFAULT_AGENCY_SETTINGS,
+        ...settings,
+        updatedAt: new Date().toISOString()
+      };
+      await setDoc(doc(db, 'system', 'agency'), cleanDataForFirestore(payload));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, path);
     }
   }
 }

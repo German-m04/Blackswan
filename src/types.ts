@@ -210,6 +210,13 @@ export interface Car {
   officialServices?: boolean;
   conditionDisclaimer?: string; // e.g. "Vehículo usado vendido en el estado en que se encuentra..."
   inspection?: VehicleInspection; // Ficha exhaustiva de inspección y peritaje
+  // Régimen de Concesión / Consignación de Vehículos
+  isConsignment?: boolean; // Indica si el vehículo está a concesión / consignación
+  consignmentOwnerName?: string; // Nombre del titular / consignante
+  consignmentOwnerPhone?: string; // Teléfono o WhatsApp de contacto del titular
+  consignmentAgreedPayoutUsd?: number; // Monto acordado a rendir al propietario en USD
+  consignmentCommissionRate?: number; // Porcentaje (%) de comisión acordada
+  consignmentNotes?: string; // Observaciones, plazos o condiciones de la concesión
   createdAt: string;
 }
 
@@ -277,4 +284,63 @@ export interface AdminUser {
   addedBy?: string;
   active: boolean;
 }
+
+export interface AgencySettings {
+  // 1. Identidad de la Agencia & Encabezados
+  agencyName: string; // ej: "BLACK SWAN Luxury Cars"
+  agencyShortName: string; // ej: "BLACK SWAN"
+  agencySlogan: string; // ej: "Casa de Automóviles Seleccionados"
+  heroSubtitle: string; // ej: "Transparencia absoluta en vehículos premium y seminuevos"
+  heroDescription: string; // ej: "Curamos cada unidad con rigurosidad técnica y jurídica..."
+
+  // 2. Domicilio & Showroom
+  showroomName: string; // ej: "Showroom Central Black Swan"
+  address: string; // ej: "Av. del Libertador 4800"
+  city: string; // ej: "Vicente López, Buenos Aires"
+  fullAddress: string; // ej: "Av. del Libertador 4800, Vicente López"
+  googleMapsUrl: string; // Link de ubicación para navegación
+  locationFeatures: string[]; // Chips/amenidades: ej: ["Espresso Lounge", "Parking Custodiado", "Pista Test Drive", "800m² showroom"]
+  showroomDescription: string; // Descripción del showroom en página de ubicación
+
+  // 3. Horarios de Atención
+  scheduleWeekdays: string; // ej: "09:00 hs a 19:00 hs"
+  scheduleSaturdays: string; // ej: "09:00 hs a 14:00 hs"
+  scheduleSundays: string; // ej: "Cerrado (Cita previa)"
+  scheduleNote?: string; // ej: "Atención personalizada con cita previa disponible"
+
+  // 4. Canales de Contacto Directo & Redes
+  phone: string; // ej: "+54 (11) 4000-8888"
+  phoneClean: string; // ej: "+541140008888"
+  whatsapp: string; // ej: "+54 9 11 4000-8888"
+  whatsappClean: string; // ej: "5491140008888"
+  whatsappDefaultMessage: string; // ej: "Hola Black Swan, quisiera realizar una consulta por un vehículo."
+  email: string; // ej: "inquiry@blackswan.cars"
+  instagramUrl: string; // ej: "https://instagram.com"
+  facebookUrl: string; // ej: "https://facebook.com"
+  tiktokUrl?: string;
+
+  // 5. Estadísticas & Métricas de Inicio
+  statsDeliveredCars: string; // ej: "+500"
+  statsDeliveredLabel: string; // ej: "Unidades Entregadas"
+  statsInspectionPoints: string; // ej: "150"
+  statsInspectionLabel: string; // ej: "Puntos de Peritaje"
+  statsVerifiedDomain: string; // ej: "100%"
+  statsVerifiedLabel: string; // ej: "Dominio Verificado"
+  statsRegistrationHours: string; // ej: "48hs"
+  statsRegistrationLabel: string; // ej: "Gestión Registral"
+
+  // 6. Pilares Institucionales de Calidad (Página de Inicio)
+  pillarsTitle: string; // ej: "Rigurosidad Técnica & Seguridad Jurídica"
+  pillarsSubtitle: string; // ej: "Cada vehículo es sometido a estrictos controles antes de su exhibición..."
+  pillar1Title: string; // ej: "Peritaje Técnico de 150 Puntos"
+  pillar1Desc: string; // ej: "Diagnóstico electrónico por escáner, verificación de tren rodante..."
+  pillar2Title: string; // ej: "Seguridad Documental Garantizada"
+  pillar2Desc: string; // ej: "Auditoría registral completa ante DNRPA..."
+  pillar3Title: string; // ej: "Valuación Transparente"
+  pillar3Desc: string; // ej: "Cotización profesional de su unidad usada..."
+
+  updatedAt?: string;
+  updatedBy?: string;
+}
+
 

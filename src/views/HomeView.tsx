@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Car } from '../types';
+import { Car, AgencySettings } from '../types';
 import { CarCard } from '../components/CarCard';
 import { HeroCarousel } from '../components/HeroCarousel';
 import { BrandPresentation } from '../components/BrandPresentation';
@@ -12,6 +12,7 @@ interface HomeViewProps {
   cars: Car[];
   onSelectCar: (car: Car) => void;
   onNavigate: (tab: string, filters?: any) => void;
+  agencySettings?: AgencySettings;
 }
 
 const defaultFilters: SearchHeroFilters = {
@@ -29,7 +30,7 @@ const defaultFilters: SearchHeroFilters = {
   sortBy: 'featured',
 };
 
-export const HomeView: React.FC<HomeViewProps> = ({ cars, onSelectCar, onNavigate }) => {
+export const HomeView: React.FC<HomeViewProps> = ({ cars, onSelectCar, onNavigate, agencySettings }) => {
   // Real-time search and filter state for the home hero
   const [filters, setFilters] = useState<SearchHeroFilters>(defaultFilters);
 
@@ -260,7 +261,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ cars, onSelectCar, onNavigat
                 Restablecer Filtros
               </button>
               <a
-                href="https://wa.me/5491140008888?text=Hola%20Black%20Swan,%20estoy%20buscando%20un%20veh%C3%ADculo%20espec%C3%ADfico%20que%20no%20encontr%C3%A9%20en%20el%20inventario."
+                href={`https://wa.me/${agencySettings?.whatsappClean || '5491140008888'}?text=${encodeURIComponent('Hola ' + (agencySettings?.agencyShortName || 'Black Swan') + ', estoy buscando un vehículo específico que no encontré en el inventario.')}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="px-5 py-2.5 bg-[#25D366]/20 hover:bg-[#25D366]/30 border border-[#25D366]/40 text-[#25D366] font-semibold text-xs uppercase tracking-wider flex items-center gap-2 transition-colors"
@@ -306,7 +307,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ cars, onSelectCar, onNavigat
             Compromiso & Respaldo
           </span>
           <h2 className="text-2xl sm:text-3xl font-serif font-light text-white tracking-tight">
-            Excelencia Black Swan Luxury Cars
+            Excelencia {agencySettings?.agencyName || 'Black Swan Luxury Cars'}
           </h2>
         </div>
 
@@ -321,6 +322,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ cars, onSelectCar, onNavigat
         <BrandPresentation 
           onNavigateCatalog={() => onNavigate('catalog')}
           onNavigateContact={() => onNavigate('contact')}
+          agencySettings={agencySettings}
         />
 
         {/* WHY CHOOSE BLACK SWAN (NUESTROS PILARES) */}
@@ -337,10 +339,10 @@ export const HomeView: React.FC<HomeViewProps> = ({ cars, onSelectCar, onNavigat
               <span>Estándar de Calidad</span>
             </div>
             <h2 className="text-2xl sm:text-3xl lg:text-4xl font-serif text-white font-light tracking-tight">
-              Rigurosidad Técnica & Seguridad Jurídica
+              {agencySettings?.pillarsTitle || 'Rigurosidad Técnica & Seguridad Jurídica'}
             </h2>
             <p className="text-white/45 text-xs sm:text-sm font-light leading-relaxed max-w-xl mx-auto">
-              Cada vehículo es sometido a estrictos controles antes de su exhibición para asegurar máxima confiabilidad y entrega inmediata.
+              {agencySettings?.pillarsSubtitle || 'Cada vehículo es sometido a estrictos controles antes de su exhibición para asegurar máxima confiabilidad y entrega inmediata.'}
             </p>
           </div>
 
@@ -355,9 +357,11 @@ export const HomeView: React.FC<HomeViewProps> = ({ cars, onSelectCar, onNavigat
               <div className="text-xs font-mono text-[#D4AF37] tracking-widest">
                 01 / INSPECCIÓN
               </div>
-              <h3 className="text-lg font-serif text-white font-light">Peritaje Técnico de 150 Puntos</h3>
+              <h3 className="text-lg font-serif text-white font-light">
+                {agencySettings?.pillar1Title || 'Peritaje Técnico de 150 Puntos'}
+              </h3>
               <p className="text-xs text-white/45 font-light leading-relaxed">
-                Diagnóstico electrónico por escáner, verificación de tren rodante, estado de frenos, chasis y medición micrométrica de pintura.
+                {agencySettings?.pillar1Desc || 'Diagnóstico electrónico por escáner, verificación de tren rodante, estado de frenos, chasis y medición micrométrica de pintura.'}
               </p>
             </motion.div>
 
@@ -371,9 +375,11 @@ export const HomeView: React.FC<HomeViewProps> = ({ cars, onSelectCar, onNavigat
               <div className="text-xs font-mono text-[#D4AF37] tracking-widest">
                 02 / GESTORÍA
               </div>
-              <h3 className="text-lg font-serif text-white font-light">Seguridad Documental Garantizada</h3>
+              <h3 className="text-lg font-serif text-white font-light">
+                {agencySettings?.pillar2Title || 'Seguridad Documental Garantizada'}
+              </h3>
               <p className="text-xs text-white/45 font-light leading-relaxed">
-                Auditoría registral completa ante DNRPA. Entregas 100% libres de gravámenes, inhibiciones, multas o deudas de patentes.
+                {agencySettings?.pillar2Desc || 'Auditoría registral completa ante DNRPA. Entregas 100% libres de gravámenes, inhibiciones, multas o deudas de patentes.'}
               </p>
             </motion.div>
 
@@ -387,9 +393,11 @@ export const HomeView: React.FC<HomeViewProps> = ({ cars, onSelectCar, onNavigat
               <div className="text-xs font-mono text-[#D4AF37] tracking-widest">
                 03 / PERMUTAS
               </div>
-              <h3 className="text-lg font-serif text-white font-light">Valuación Transparente</h3>
+              <h3 className="text-lg font-serif text-white font-light">
+                {agencySettings?.pillar3Title || 'Valuación Transparente'}
+              </h3>
               <p className="text-xs text-white/45 font-light leading-relaxed">
-                Cotización profesional de su unidad usada referenciada a valores reales de mercado para aplicarlo como parte de pago.
+                {agencySettings?.pillar3Desc || 'Cotización profesional de su unidad usada referenciada a valores reales de mercado para aplicarlo como parte de pago.'}
               </p>
             </motion.div>
           </div>

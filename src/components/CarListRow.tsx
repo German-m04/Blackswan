@@ -92,11 +92,18 @@ export const CarListRow: React.FC<CarListRowProps> = ({ car, onSelect }) => {
             <span className="text-[10px] uppercase font-mono tracking-widest text-[#D4AF37] font-semibold">
               {car.brand} • {car.bodyType} • {car.color}
             </span>
-            {car.singleOwner && (
-              <span className="text-[9px] uppercase tracking-wider text-emerald-400 bg-emerald-950/50 border border-emerald-500/30 px-2 py-0.5">
-                Único Dueño
-              </span>
-            )}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {car.singleOwner && (
+                <span className="text-[9px] uppercase tracking-wider text-emerald-400 bg-emerald-950/50 border border-emerald-500/30 px-2 py-0.5">
+                  Único Dueño
+                </span>
+              )}
+              {car.isConsignment && (
+                <span className="text-[9px] uppercase tracking-wider text-purple-300 bg-purple-950/70 border border-purple-500/40 px-2 py-0.5 font-medium">
+                  A Concesión
+                </span>
+              )}
+            </div>
           </div>
 
           <h3 

@@ -1,13 +1,17 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { ShieldCheck, Award } from 'lucide-react';
+import { AgencySettings } from '../types';
 
 interface BrandPresentationProps {
   onNavigateCatalog?: () => void;
   onNavigateContact?: () => void;
+  agencySettings?: AgencySettings;
 }
 
-export const BrandPresentation: React.FC<BrandPresentationProps> = () => {
+export const BrandPresentation: React.FC<BrandPresentationProps> = ({ agencySettings }) => {
+  const settings = agencySettings;
+
   return (
     <motion.section 
       initial={{ opacity: 0, y: 25 }}
@@ -29,10 +33,10 @@ export const BrandPresentation: React.FC<BrandPresentationProps> = () => {
             className="flex flex-col items-center sm:items-start space-y-1.5"
           >
             <span className="text-[9px] font-mono uppercase tracking-[0.35em] text-[#D4AF37]">
-              Casa de Automóviles Seleccionados
+              {settings?.agencySlogan || 'Casa de Automóviles Seleccionados'}
             </span>
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-serif text-white font-light tracking-wide">
-              BLACK SWAN <span className="text-[#D4AF37] italic font-serif">Luxury Cars</span>
+              {settings?.agencyShortName || 'BLACK SWAN'} <span className="text-[#D4AF37] italic font-serif">Luxury Cars</span>
             </h1>
           </motion.div>
         </div>
@@ -46,10 +50,10 @@ export const BrandPresentation: React.FC<BrandPresentationProps> = () => {
             className="lg:col-span-7 space-y-4 text-left"
           >
             <h2 className="text-xl sm:text-2xl font-serif text-white font-light leading-snug">
-              Transparencia absoluta en vehículos premium y seminuevos
+              {settings?.heroSubtitle || 'Transparencia absoluta en vehículos premium y seminuevos'}
             </h2>
             <p className="text-xs sm:text-sm text-white/60 font-light leading-relaxed">
-              Curamos cada unidad con rigurosidad técnica y jurídica. Brindamos un servicio integral de adquisición, permuta y consignación física con peritaje mecánico previo y documentación garantizada para entrega inmediata.
+              {settings?.heroDescription || 'Curamos cada unidad con rigurosidad técnica y jurídica. Brindamos un servicio integral de adquisición, permuta y consignación física con peritaje mecánico previo y documentación garantizada para entrega inmediata.'}
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 text-xs text-white/70">
               <div className="flex items-center gap-2.5 bg-white/5 p-3 border border-white/5">
@@ -71,20 +75,36 @@ export const BrandPresentation: React.FC<BrandPresentationProps> = () => {
             className="lg:col-span-5 grid grid-cols-2 gap-4"
           >
             <div className="bg-[#030303] p-4 sm:p-5 border border-white/10 text-center space-y-1">
-              <span className="text-2xl sm:text-3xl font-serif text-[#D4AF37] font-normal block">+500</span>
-              <span className="text-[9px] uppercase tracking-[0.2em] text-white/50 block font-mono">Unidades Entregadas</span>
+              <span className="text-2xl sm:text-3xl font-serif text-[#D4AF37] font-normal block">
+                {settings?.statsDeliveredCars || '+500'}
+              </span>
+              <span className="text-[9px] uppercase tracking-[0.2em] text-white/50 block font-mono">
+                {settings?.statsDeliveredLabel || 'Unidades Entregadas'}
+              </span>
             </div>
             <div className="bg-[#030303] p-4 sm:p-5 border border-white/10 text-center space-y-1">
-              <span className="text-2xl sm:text-3xl font-serif text-[#D4AF37] font-normal block">150</span>
-              <span className="text-[9px] uppercase tracking-[0.2em] text-white/50 block font-mono">Puntos de Peritaje</span>
+              <span className="text-2xl sm:text-3xl font-serif text-[#D4AF37] font-normal block">
+                {settings?.statsInspectionPoints || '150'}
+              </span>
+              <span className="text-[9px] uppercase tracking-[0.2em] text-white/50 block font-mono">
+                {settings?.statsInspectionLabel || 'Puntos de Peritaje'}
+              </span>
             </div>
             <div className="bg-[#030303] p-4 sm:p-5 border border-white/10 text-center space-y-1">
-              <span className="text-2xl sm:text-3xl font-serif text-[#D4AF37] font-normal block">100%</span>
-              <span className="text-[9px] uppercase tracking-[0.2em] text-white/50 block font-mono">Dominio Verificado</span>
+              <span className="text-2xl sm:text-3xl font-serif text-[#D4AF37] font-normal block">
+                {settings?.statsVerifiedDomain || '100%'}
+              </span>
+              <span className="text-[9px] uppercase tracking-[0.2em] text-white/50 block font-mono">
+                {settings?.statsVerifiedLabel || 'Dominio Verificado'}
+              </span>
             </div>
             <div className="bg-[#030303] p-4 sm:p-5 border border-white/10 text-center space-y-1">
-              <span className="text-2xl sm:text-3xl font-serif text-[#D4AF37] font-normal block">48hs</span>
-              <span className="text-[9px] uppercase tracking-[0.2em] text-white/50 block font-mono">Gestión Registral</span>
+              <span className="text-2xl sm:text-3xl font-serif text-[#D4AF37] font-normal block">
+                {settings?.statsRegistrationHours || '48hs'}
+              </span>
+              <span className="text-[9px] uppercase tracking-[0.2em] text-white/50 block font-mono">
+                {settings?.statsRegistrationLabel || 'Gestión Registral'}
+              </span>
             </div>
           </motion.div>
         </div>

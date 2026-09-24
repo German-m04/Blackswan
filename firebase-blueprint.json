@@ -178,9 +178,64 @@
         "updatedAt": { "type": "string", "maxLength": 50 }
       },
       "required": ["id", "name", "models"]
+    },
+    "AgencySettings": {
+      "title": "AgencySettings",
+      "description": "Dealership corporate identity, address, operating hours, direct channels and homepage narrative",
+      "type": "object",
+      "properties": {
+        "agencyName": { "type": "string", "maxLength": 150 },
+        "agencyShortName": { "type": "string", "maxLength": 50 },
+        "agencySlogan": { "type": "string", "maxLength": 200 },
+        "heroSubtitle": { "type": "string", "maxLength": 300 },
+        "heroDescription": { "type": "string", "maxLength": 2000 },
+        "showroomName": { "type": "string", "maxLength": 150 },
+        "address": { "type": "string", "maxLength": 200 },
+        "city": { "type": "string", "maxLength": 150 },
+        "fullAddress": { "type": "string", "maxLength": 250 },
+        "googleMapsUrl": { "type": "string", "maxLength": 500 },
+        "locationFeatures": { "type": "array" },
+        "showroomDescription": { "type": "string", "maxLength": 2000 },
+        "scheduleWeekdays": { "type": "string", "maxLength": 100 },
+        "scheduleSaturdays": { "type": "string", "maxLength": 100 },
+        "scheduleSundays": { "type": "string", "maxLength": 100 },
+        "scheduleNote": { "type": "string", "maxLength": 500 },
+        "phone": { "type": "string", "maxLength": 50 },
+        "phoneClean": { "type": "string", "maxLength": 50 },
+        "whatsapp": { "type": "string", "maxLength": 50 },
+        "whatsappClean": { "type": "string", "maxLength": 50 },
+        "whatsappDefaultMessage": { "type": "string", "maxLength": 500 },
+        "email": { "type": "string", "maxLength": 100 },
+        "instagramUrl": { "type": "string", "maxLength": 300 },
+        "facebookUrl": { "type": "string", "maxLength": 300 },
+        "tiktokUrl": { "type": "string", "maxLength": 300 },
+        "statsDeliveredCars": { "type": "string", "maxLength": 50 },
+        "statsDeliveredLabel": { "type": "string", "maxLength": 100 },
+        "statsInspectionPoints": { "type": "string", "maxLength": 50 },
+        "statsInspectionLabel": { "type": "string", "maxLength": 100 },
+        "statsVerifiedDomain": { "type": "string", "maxLength": 50 },
+        "statsVerifiedLabel": { "type": "string", "maxLength": 100 },
+        "statsRegistrationHours": { "type": "string", "maxLength": 50 },
+        "statsRegistrationLabel": { "type": "string", "maxLength": 100 },
+        "pillarsTitle": { "type": "string", "maxLength": 200 },
+        "pillarsSubtitle": { "type": "string", "maxLength": 500 },
+        "pillar1Title": { "type": "string", "maxLength": 150 },
+        "pillar1Desc": { "type": "string", "maxLength": 1000 },
+        "pillar2Title": { "type": "string", "maxLength": 150 },
+        "pillar2Desc": { "type": "string", "maxLength": 1000 },
+        "pillar3Title": { "type": "string", "maxLength": 150 },
+        "pillar3Desc": { "type": "string", "maxLength": 1000 },
+        "updatedAt": { "type": "string", "maxLength": 50 },
+        "updatedBy": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["agencyName", "address", "city", "scheduleWeekdays", "phone", "email"]
     }
   },
   "firestore": {
+    "/system/{docId}": {
+      "schema": "AgencySettings",
+      "description": "System settings, dealership address, schedules and homepage information"
+    },
     "/brands/{brandId}": {
       "schema": "VehicleBrand",
       "description": "Automotive brand and model catalog"

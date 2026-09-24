@@ -2,13 +2,19 @@ import React, { useState } from 'react';
 import { TradeInForm } from '../components/TradeInForm';
 import { storage } from '../utils/storage';
 import { Phone, Mail, MessageCircle, MapPin, Send, Check, ShieldCheck } from 'lucide-react';
+import { AgencySettings } from '../types';
 
-export const ContactView: React.FC = () => {
+interface ContactViewProps {
+  agencySettings?: AgencySettings;
+}
+
+export const ContactView: React.FC<ContactViewProps> = ({ agencySettings }) => {
   const [activeSubTab, setActiveSubTab] = useState<'tradeIn' | 'general'>('tradeIn');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [message, setMessage] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const settings = agencySettings;
 
   const handleGeneralSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,7 +50,7 @@ export const ContactView: React.FC = () => {
       {/* Direct Contact Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <a 
-          href="https://wa.me/5491140008888" 
+          href={`https://wa.me/${settings?.whatsappClean || '5491140008888'}?text=${encodeURIComponent(settings?.whatsappDefaultMessage || 'Hola Black Swan, quisiera consultar sobre un vehículo.')}`} 
           target="_blank" 
           rel="noreferrer"
           className="bg-emerald-950/20 border border-emerald-500/30 p-6 flex items-center gap-4 hover:border-emerald-500/60 transition-all group"
@@ -54,13 +60,13 @@ export const ContactView: React.FC = () => {
           </div>
           <div>
             <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest block">WhatsApp Business</span>
-            <span className="text-base font-serif text-white block">+54 9 11 4000-8888</span>
+            <span className="text-base font-serif text-white block">{settings?.whatsapp || '+54 9 11 4000-8888'}</span>
             <span className="text-[10px] text-white/40 font-light">Atención ejecutiva inmediata</span>
           </div>
         </a>
 
         <a 
-          href="tel:+541140008888" 
+          href={`tel:${settings?.phoneClean || '+541140008888'}`} 
           className="bg-[#0a0a0a] border border-white/10 p-6 flex items-center gap-4 hover:border-[#D4AF37] transition-all group"
         >
           <div className="w-10 h-10 bg-[#D4AF37] text-black flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
@@ -68,8 +74,8 @@ export const ContactView: React.FC = () => {
           </div>
           <div>
             <span className="text-[10px] text-[#D4AF37] font-bold uppercase tracking-widest block">Central Telefónica</span>
-            <span className="text-base font-serif text-white block">011 4000-8888</span>
-            <span className="text-[10px] text-white/40 font-light">Lunes a Viernes 9 a 19 hs</span>
+            <span className="text-base font-serif text-white block">{settings?.phone || '011 4000-8888'}</span>
+            <span className="text-[10px] text-white/40 font-light">Lun a Vie {settings?.scheduleWeekdays || '9 a 19 hs'}</span>
           </div>
         </a>
 
@@ -78,9 +84,9 @@ export const ContactView: React.FC = () => {
             <MapPin className="w-5 h-5" />
           </div>
           <div>
-            <span className="text-[10px] text-white/40 font-bold uppercase tracking-widest block">Showroom Central</span>
-            <span className="text-sm font-serif text-white block">Av. del Libertador 4800</span>
-            <span className="text-[10px] text-white/40 font-light">Vicente López, Buenos Aires</span>
+            <span className="text-[10px] text-white/40 font-bold uppercase tracking-widest block">{settings?.showroomName || 'Showroom Central'}</span>
+            <span className="text-sm font-serif text-white block">{settings?.address || 'Av. del Libertador 4800'}</span>
+            <span className="text-[10px] text-white/40 font-light">{settings?.city || 'Vicente López, Buenos Aires'}</span>
           </div>
         </div>
       </div>

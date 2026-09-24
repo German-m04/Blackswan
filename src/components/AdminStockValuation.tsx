@@ -22,7 +22,9 @@ import {
   Clock,
   ArrowUpRight,
   ArrowDownRight,
-  CheckCircle2
+  CheckCircle2,
+  Handshake,
+  CarFront
 } from 'lucide-react';
 import { exportToCsv } from '../utils/imageUtils';
 
@@ -39,6 +41,7 @@ export const AdminStockValuation: React.FC<AdminStockValuationProps> = ({
   const [statusFilter, setStatusFilter] = useState<'TODOS' | VehicleStatus>('TODOS');
   const [brandFilter, setBrandFilter] = useState<string>('TODAS');
   const [costFilter, setCostFilter] = useState<'ALL' | 'WITH_COST' | 'MISSING_COST'>('ALL');
+  const [originFilter, setOriginFilter] = useState<'ALL' | 'OWN' | 'CONSIGNMENT'>('ALL');
   const [sortBy, setSortBy] = useState<
     'profit-desc' | 'profit-asc' | 'roi-desc' | 'purchase-desc' | 'price-desc' | 'price-asc' | 'year-desc' | 'km-asc'
   >('profit-desc');
@@ -253,7 +256,12 @@ export const AdminStockValuation: React.FC<AdminStockValuationProps> = ({
       if (costFilter === 'WITH_COST') costMatch = hasCost;
       if (costFilter === 'MISSING_COST') costMatch = !hasCost;
 
-      return searchMatch && statusMatch && brandMatch && costMatch;
+      // Origin Filter
+      let originMatch = true;
+      if (originFilter === 'OWN') originMatch = !c.isConsignment;
+      if (originFilter === 'CONSIGNMENT') originMatch = !!c.isConsignment;
+
+      return searchMatch && statusMatch && brandMatch && costMatch && originMatch;
     }).sort((a, b) => {
       const aCost = (a.purchasePriceUsd || 0) + (a.purchaseExpensesUsd || 0);
       const bCost = (b.purchasePriceUsd || 0) + (b.purchaseExpensesUsd || 0);
@@ -655,7 +663,7 @@ ${brandAllocations.map((b) => `- ${b.brand}: Venta ${formatPriceUsd(b.totalUsd)}
         </div>
 
         {/* Filter Toolbar */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
           {/* Search Box */}
           <div className="relative">
             <Search className="w-3.5 h-3.5 text-white/30 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -680,6 +688,19 @@ ${brandAllocations.map((b) => `- ${b.brand}: Venta ${formatPriceUsd(b.totalUsd)}
               <option value="Disponible">Solo Disponibles (En Stock)</option>
               <option value="Reservado">Solo Reservados</option>
               <option value="Vendido">Solo Vendidos</option>
+            </select>
+          </div>
+
+          {/* Origin Filter (Propio vs Concesión) */}
+          <div>
+            <select
+              value={originFilter}
+              onChange={(e) => setOriginFilter(e.target.value as any)}
+              className="w-full bg-[#050505] border border-white/10 px-3 py-2 text-xs text-white focus:outline-none focus:border-[#D4AF37]"
+            >
+              <option value="ALL">Origen: Todos ({cars.length})</option>
+              <option value="OWN">Solo Stock Propio ({cars.filter(c => !c.isConsignment).length})</option>
+              <option value="CONSIGNMENT">Solo A Concesión ({cars.filter(c => !!c.isConsignment).length})</option>
             </select>
           </div>
 
@@ -780,9 +801,26 @@ ${brandAllocations.map((b) => `- ${b.brand}: Venta ${formatPriceUsd(b.totalUsd)}
                             <span className="font-serif text-white font-medium block">
                               {car.title}
                             </span>
-                            <span className="text-[10px] text-white/40 font-mono">
-                              {car.brand} {car.model}
-                            </span>
+                            <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                              <span className="text-[10px] text-white/40 font-mono">
+                                {car.brand} {car.model}
+                              </span>
+                              {car.isConsignment ? (
+                                <span className="px-1.5 py-0.2 bg-purple-950/70 text-purple-300 border border-purple-500/40 text-[8px] uppercase tracking-wider font-bold rounded flex items-center gap-1">
+                                  <Handshake className="w-2.5 h-2.5 text-purple-400" />
+                                  A Concesión
+                                </span>
+                              ) : (
+                                <span className="px-1.5 py-0.2 bg-white/5 text-white/40 border border-white/10 text-[8px] uppercase tracking-wider rounded">
+                                  Propio
+                                </span>
+                              )}
+                            </div>
+                            {car.isConsignment && car.consignmentOwnerName && (
+                              <span className="text-[9px] text-purple-300/80 block font-mono mt-0.5">
+                                Dueño: {car.consignmentOwnerName}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </td>

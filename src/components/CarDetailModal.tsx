@@ -267,6 +267,7 @@ export const CarDetailModal: React.FC<CarDetailModalProps> = ({ car, onClose }) 
                   {car.licensePlate && <li>Dominio verificado: {car.licensePlate}</li>}
                   {car.vtvValidUntil && <li>VTV vigente hasta {car.vtvValidUntil}</li>}
                   {car.singleOwner && <li>Único dueño certificado</li>}
+                  {car.isConsignment && <li>Unidad en régimen de concesión / consignación oficial</li>}
                   <li>Inspección técnica integral disponible</li>
                 </ul>
               </div>

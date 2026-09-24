@@ -2,8 +2,13 @@ import React, { useState } from 'react';
 import { InteractiveMap } from '../components/InteractiveMap';
 import { storage } from '../utils/storage';
 import { Calendar, Clock, Check, Send, Sparkles } from 'lucide-react';
+import { AgencySettings } from '../types';
 
-export const LocationView: React.FC = () => {
+interface LocationViewProps {
+  agencySettings?: AgencySettings;
+}
+
+export const LocationView: React.FC<LocationViewProps> = ({ agencySettings }) => {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
@@ -28,7 +33,7 @@ export const LocationView: React.FC = () => {
 
   return (
     <div className="space-y-12 pb-12">
-      <InteractiveMap />
+      <InteractiveMap agencySettings={agencySettings} />
 
       {/* Appointment Scheduler Box */}
       <div className="bg-[#0a0a0a] border border-white/10 p-6 sm:p-10 max-w-3xl mx-auto space-y-6">
@@ -41,7 +46,7 @@ export const LocationView: React.FC = () => {
             Agendar Visita o Test Drive
           </h2>
           <p className="text-white/40 text-xs font-light max-w-lg mx-auto">
-            Reserve un horario preferencial para ser recibido por un ejecutivo comercial en nuestro showroom.
+            {agencySettings?.scheduleNote || 'Reserve un horario preferencial para ser recibido por un ejecutivo comercial en nuestro showroom.'}
           </p>
         </div>
 

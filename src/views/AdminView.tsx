@@ -64,8 +64,11 @@ import {
   CheckCircle2,
   AlertCircle,
   Menu,
-  ChevronRight
+  ChevronRight,
+  Handshake,
+  Settings
 } from 'lucide-react';
+import { AdminAgencySettings } from '../components/AdminAgencySettings';
 
 interface AdminViewProps {
   cars: Car[];
@@ -98,7 +101,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
   }, [isAdminUser]);
 
   // Active Admin Sub-tab
-  const [adminTab, setAdminTab] = useState<'inventory' | 'finances' | 'valuation' | 'customers' | 'quotations' | 'inquiries' | 'reviews' | 'brands' | 'team'>('inventory');
+  const [adminTab, setAdminTab] = useState<'inventory' | 'finances' | 'valuation' | 'customers' | 'quotations' | 'inquiries' | 'reviews' | 'brands' | 'team' | 'settings'>('inventory');
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   // Admin In-View Authentication States
@@ -238,7 +241,16 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const [formConditionDisclaimer, setFormConditionDisclaimer] = useState('');
   const [formInspection, setFormInspection] = useState<VehicleInspection>({});
 
+  // Régimen de Concesión / Consignación de Vehículos
+  const [formIsConsignment, setFormIsConsignment] = useState(false);
+  const [formConsignmentOwnerName, setFormConsignmentOwnerName] = useState('');
+  const [formConsignmentOwnerPhone, setFormConsignmentOwnerPhone] = useState('');
+  const [formConsignmentAgreedPayoutUsd, setFormConsignmentAgreedPayoutUsd] = useState<number | ''>('');
+  const [formConsignmentCommissionRate, setFormConsignmentCommissionRate] = useState<number | ''>('');
+  const [formConsignmentNotes, setFormConsignmentNotes] = useState('');
+
   const [carSearch, setCarSearch] = useState('');
+  const [carTypeFilter, setCarTypeFilter] = useState<'all' | 'own' | 'consignment'>('all');
 
   // Handle local image file upload from computer
   const handleImageFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -316,6 +328,13 @@ export const AdminView: React.FC<AdminViewProps> = ({
     setFormContactPhone('5491140008888');
     setFormConditionDisclaimer('');
     setFormInspection({});
+    // Reset consignment fields
+    setFormIsConsignment(false);
+    setFormConsignmentOwnerName('');
+    setFormConsignmentOwnerPhone('');
+    setFormConsignmentAgreedPayoutUsd('');
+    setFormConsignmentCommissionRate('');
+    setFormConsignmentNotes('');
     setShowCarModal(true);
   };
 
@@ -351,6 +370,13 @@ export const AdminView: React.FC<AdminViewProps> = ({
     setFormContactPhone(car.contactPhone || '');
     setFormConditionDisclaimer(car.conditionDisclaimer || '');
     setFormInspection(car.inspection ? JSON.parse(JSON.stringify(car.inspection)) : {});
+    // Load consignment fields
+    setFormIsConsignment(!!car.isConsignment);
+    setFormConsignmentOwnerName(car.consignmentOwnerName || '');
+    setFormConsignmentOwnerPhone(car.consignmentOwnerPhone || '');
+    setFormConsignmentAgreedPayoutUsd(typeof car.consignmentAgreedPayoutUsd === 'number' ? car.consignmentAgreedPayoutUsd : '');
+    setFormConsignmentCommissionRate(typeof car.consignmentCommissionRate === 'number' ? car.consignmentCommissionRate : '');
+    setFormConsignmentNotes(car.consignmentNotes || '');
     setShowCarModal(true);
   };
 
@@ -405,6 +431,12 @@ export const AdminView: React.FC<AdminViewProps> = ({
       equipment: equipmentList.length > 0 ? equipmentList : ['Climatizador', 'Sensores de Estacionamiento'],
       singleOwner: true,
       officialServices: true,
+      isConsignment: formIsConsignment,
+      ...(formIsConsignment && formConsignmentOwnerName.trim() ? { consignmentOwnerName: formConsignmentOwnerName.trim() } : {}),
+      ...(formIsConsignment && formConsignmentOwnerPhone.trim() ? { consignmentOwnerPhone: formConsignmentOwnerPhone.trim() } : {}),
+      ...(formIsConsignment && formConsignmentAgreedPayoutUsd !== '' && !isNaN(Number(formConsignmentAgreedPayoutUsd)) ? { consignmentAgreedPayoutUsd: Number(formConsignmentAgreedPayoutUsd) } : {}),
+      ...(formIsConsignment && formConsignmentCommissionRate !== '' && !isNaN(Number(formConsignmentCommissionRate)) ? { consignmentCommissionRate: Number(formConsignmentCommissionRate) } : {}),
+      ...(formIsConsignment && formConsignmentNotes.trim() ? { consignmentNotes: formConsignmentNotes.trim() } : {}),
       ...(formPurchasePriceUsd !== '' && !isNaN(Number(formPurchasePriceUsd)) ? { purchasePriceUsd: Number(formPurchasePriceUsd) } : {}),
       ...(formPurchaseExpensesUsd !== '' && !isNaN(Number(formPurchaseExpensesUsd)) ? { purchaseExpensesUsd: Number(formPurchaseExpensesUsd) } : {}),
       ...(formPurchaseDate?.trim() ? { purchaseDate: formPurchaseDate.trim() } : {}),
@@ -432,6 +464,19 @@ export const AdminView: React.FC<AdminViewProps> = ({
         if (!formContactPhone?.trim()) delete (updatedCar as any).contactPhone;
         if (!formConditionDisclaimer?.trim()) delete (updatedCar as any).conditionDisclaimer;
         if (Object.keys(synchronizedInspection).length === 0) delete (updatedCar as any).inspection;
+        if (!formIsConsignment) {
+          delete (updatedCar as any).consignmentOwnerName;
+          delete (updatedCar as any).consignmentOwnerPhone;
+          delete (updatedCar as any).consignmentAgreedPayoutUsd;
+          delete (updatedCar as any).consignmentCommissionRate;
+          delete (updatedCar as any).consignmentNotes;
+        } else {
+          if (!formConsignmentOwnerName.trim()) delete (updatedCar as any).consignmentOwnerName;
+          if (!formConsignmentOwnerPhone.trim()) delete (updatedCar as any).consignmentOwnerPhone;
+          if (formConsignmentAgreedPayoutUsd === '' || isNaN(Number(formConsignmentAgreedPayoutUsd))) delete (updatedCar as any).consignmentAgreedPayoutUsd;
+          if (formConsignmentCommissionRate === '' || isNaN(Number(formConsignmentCommissionRate))) delete (updatedCar as any).consignmentCommissionRate;
+          if (!formConsignmentNotes.trim()) delete (updatedCar as any).consignmentNotes;
+        }
         await storage.updateCar(updatedCar);
       } else {
         await storage.addCar(carPayload);
@@ -755,12 +800,16 @@ export const AdminView: React.FC<AdminViewProps> = ({
   // FILTERING LOGIC
   // ------------------------------------
   const filteredCars = cars.filter((car) => {
+    if (carTypeFilter === 'own' && car.isConsignment) return false;
+    if (carTypeFilter === 'consignment' && !car.isConsignment) return false;
     if (!carSearch) return true;
     const q = carSearch.toLowerCase();
     return (
       car.title.toLowerCase().includes(q) ||
       car.brand.toLowerCase().includes(q) ||
-      car.model.toLowerCase().includes(q)
+      car.model.toLowerCase().includes(q) ||
+      (car.licensePlate && car.licensePlate.toLowerCase().includes(q)) ||
+      (car.consignmentOwnerName && car.consignmentOwnerName.toLowerCase().includes(q))
     );
   });
 
@@ -795,8 +844,20 @@ export const AdminView: React.FC<AdminViewProps> = ({
     }).format(price);
   };
 
+  const formatPriceArs = (price: number) => {
+    return new Intl.NumberFormat('es-AR', {
+      style: 'currency',
+      currency: 'ARS',
+      maximumFractionDigits: 0
+    }).format(price);
+  };
+
   // Metrics
   const totalStockUsd = cars.reduce((acc, car) => acc + (car.status === 'Disponible' ? car.priceUsd : 0), 0);
+  const totalStockArs = cars.reduce((acc, car) => {
+    if (car.status !== 'Disponible') return acc;
+    return acc + (car.priceArs || (car.priceUsd ? car.priceUsd * 1350 : 0));
+  }, 0);
   const pendingInquiriesCount = inquiries.filter((i) => i.status === 'Pendiente').length;
 
   // ------------------------------------
@@ -1101,8 +1162,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
       id: 'finances' as const,
       name: 'Finanzas & Gastos',
       icon: TrendingUp,
-      count: formatPriceUsd(totalStockUsd),
-      detail: `${expenses.length} gastos`
+      count: formatPriceArs(totalStockArs),
+      detail: `${formatPriceUsd(totalStockUsd)} · ${expenses.length} gastos`
     },
     {
       id: 'customers' as const,
@@ -1146,6 +1207,13 @@ export const AdminView: React.FC<AdminViewProps> = ({
       icon: ShieldCheck,
       count: 'Seguro',
       detail: 'Acceso Total'
+    },
+    {
+      id: 'settings' as const,
+      name: 'Configuración & Portada',
+      icon: Settings,
+      count: 'En Vivo',
+      detail: 'Domicilio, Horarios & Home'
     }
   ];
 
@@ -1389,10 +1457,12 @@ export const AdminView: React.FC<AdminViewProps> = ({
                 <span className="text-[10px] font-mono uppercase text-[#D4AF37]">Finanzas & Stock</span>
                 <TrendingUp className="w-3.5 h-3.5 text-[#D4AF37]" />
               </div>
-              <div className="text-xl font-serif text-[#D4AF37] font-light truncate">
-                {formatPriceUsd(totalStockUsd)}
+              <div className="text-lg font-serif text-[#D4AF37] font-light truncate">
+                {formatPriceArs(totalStockArs)}
               </div>
-              <span className="text-[10px] text-white/40 font-mono">{expenses.length} gastos reg.</span>
+              <span className="text-[10px] text-white/50 font-mono block truncate">
+                {formatPriceUsd(totalStockUsd)} · {expenses.length} gastos
+              </span>
             </div>
 
             <div 
@@ -1453,7 +1523,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
               <Search className="w-4 h-4 text-white/30 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder="Buscar vehículo por marca o modelo..."
+                placeholder="Buscar vehículo por marca, modelo, patente o titular..."
                 value={carSearch}
                 onChange={(e) => setCarSearch(e.target.value)}
                 className="w-full bg-[#0a0a0a] border border-white/10 pl-10 pr-4 py-2.5 text-xs text-white focus:outline-none focus:border-[#D4AF37]"
@@ -1484,11 +1554,59 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
               <button
                 onClick={openAddCarModal}
-                className="px-4 py-2.5 font-bold bg-[#D4AF37] hover:bg-[#c4a02e] text-black text-[10px] uppercase tracking-[0.2em] flex items-center justify-center gap-2"
+                className="px-4 py-2.5 font-bold bg-[#D4AF37] hover:bg-[#c4a02e] text-black text-[10px] uppercase tracking-[0.2em] flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Cargar Vehículo</span>
               </button>
+            </div>
+          </div>
+
+          {/* Quick Origin Filters & Fleet Counts */}
+          <div className="flex flex-wrap items-center justify-between gap-3 text-xs border-y border-white/10 py-3">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[10px] uppercase tracking-wider text-white/40 mr-1 font-semibold">Tipo de Ingreso:</span>
+              <button
+                type="button"
+                onClick={() => setCarTypeFilter('all')}
+                className={`px-3 py-1 text-[10px] uppercase font-bold tracking-wider rounded transition-all border cursor-pointer ${
+                  carTypeFilter === 'all'
+                    ? 'bg-[#D4AF37] text-black border-[#D4AF37]'
+                    : 'bg-[#050505] text-white/60 border-white/10 hover:text-white'
+                }`}
+              >
+                Todos ({cars.length})
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setCarTypeFilter('own')}
+                className={`px-3 py-1 text-[10px] uppercase font-bold tracking-wider rounded transition-all border flex items-center gap-1.5 cursor-pointer ${
+                  carTypeFilter === 'own'
+                    ? 'bg-white text-black border-white'
+                    : 'bg-[#050505] text-white/60 border-white/10 hover:text-white'
+                }`}
+              >
+                <CarFront className="w-3 h-3" />
+                <span>Stock Propio ({cars.filter((c) => !c.isConsignment).length})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setCarTypeFilter('consignment')}
+                className={`px-3 py-1 text-[10px] uppercase font-bold tracking-wider rounded transition-all border flex items-center gap-1.5 cursor-pointer ${
+                  carTypeFilter === 'consignment'
+                    ? 'bg-purple-600 text-white border-purple-500 shadow-[0_0_12px_rgba(168,85,247,0.3)]'
+                    : 'bg-[#050505] text-purple-300/70 border-purple-500/30 hover:border-purple-500/50 hover:text-purple-200'
+                }`}
+              >
+                <Handshake className="w-3 h-3 text-purple-400" />
+                <span>A Concesión ({cars.filter((c) => !!c.isConsignment).length})</span>
+              </button>
+            </div>
+
+            <div className="text-[11px] text-white/40 font-mono">
+              Mostrando <strong className="text-white">{filteredCars.length}</strong> de <strong className="text-white">{cars.length}</strong> vehículos
             </div>
           </div>
 
@@ -1518,7 +1636,24 @@ export const AdminView: React.FC<AdminViewProps> = ({
                           />
                           <div>
                             <span className="font-serif text-white block text-sm">{car.title}</span>
-                            <span className="text-[9px] text-[#D4AF37] font-bold uppercase tracking-wider">{car.brand} • {car.transmission}</span>
+                            <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                              <span className="text-[9px] text-[#D4AF37] font-bold uppercase tracking-wider">{car.brand} • {car.transmission}</span>
+                              {car.isConsignment ? (
+                                <span className="px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider bg-purple-950/70 text-purple-300 border border-purple-500/40 rounded flex items-center gap-1 shadow-sm">
+                                  <Handshake className="w-2.5 h-2.5 text-purple-400" />
+                                  A Concesión
+                                </span>
+                              ) : (
+                                <span className="px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider bg-white/5 text-white/40 border border-white/10 rounded">
+                                  Propio
+                                </span>
+                              )}
+                            </div>
+                            {car.isConsignment && car.consignmentOwnerName && (
+                              <span className="text-[9px] text-purple-300/80 block font-mono mt-0.5">
+                                Titular: {car.consignmentOwnerName} {car.consignmentOwnerPhone ? `• ${car.consignmentOwnerPhone}` : ''}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </td>
@@ -1526,8 +1661,15 @@ export const AdminView: React.FC<AdminViewProps> = ({
                         <span className="font-serif text-white block">{car.year}</span>
                         <span className="text-[10px] text-white/40 font-mono">{new Intl.NumberFormat('es-AR').format(car.km)} km</span>
                       </td>
-                      <td className="p-4 font-serif text-[#D4AF37]">
-                        {formatPriceUsd(car.priceUsd)}
+                      <td className="p-4 font-serif">
+                        <div className="text-[#D4AF37] font-medium">
+                          {formatPriceUsd(car.priceUsd)}
+                        </div>
+                        {car.isConsignment && typeof car.consignmentAgreedPayoutUsd === 'number' && car.consignmentAgreedPayoutUsd > 0 && (
+                          <span className="text-[9px] text-purple-300/80 font-mono block">
+                            Pactado dueño: ${car.consignmentAgreedPayoutUsd.toLocaleString('en-US')}
+                          </span>
+                        )}
                       </td>
                       <td className="p-4">
                         <select
@@ -2164,6 +2306,17 @@ export const AdminView: React.FC<AdminViewProps> = ({
           }}
         />
       )}
+
+      {/* ========================================================= */}
+      {/* TAB 8: AGENCY SETTINGS, DOMICILIO, HORARIOS & PORTADA      */}
+      {/* ========================================================= */}
+      {adminTab === 'settings' && (
+        <AdminAgencySettings 
+          onSettingsSaved={() => {
+            onDataChanged();
+          }}
+        />
+      )}
           </div>
         </div>
       </div>
@@ -2268,24 +2421,214 @@ export const AdminView: React.FC<AdminViewProps> = ({
                 </div>
               </div>
 
-              {/* COMPRA Y VALORIZACIÓN: COSTOS Y RENDIMIENTO */}
-              <div className="bg-[#050505] border border-[#D4AF37]/30 p-5 space-y-4">
+              {/* ========================================================= */}
+              {/* MODALIDAD DEL VEHÍCULO: STOCK PROPIO VS AUTO A CONCESIÓN */}
+              {/* ========================================================= */}
+              <div className="bg-[#050505] border border-white/10 p-5 rounded space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-3">
                   <div className="flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4 text-[#D4AF37]" />
+                    <Handshake className="w-4 h-4 text-[#D4AF37]" />
                     <span className="text-xs font-serif text-white uppercase tracking-wider font-semibold">
-                      Finanzas: Compra del Auto & Rendimiento Comercial
+                      Modalidad de Ingreso del Vehículo *
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-white/50 font-mono">
+                    {formIsConsignment ? 'En régimen de concesión / consignación' : 'Vehículo adquirido / propiedad de la agencia'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setFormIsConsignment(false)}
+                    className={`p-3.5 text-left border rounded transition-all flex items-start gap-3 cursor-pointer ${
+                      !formIsConsignment
+                        ? 'bg-[#D4AF37]/10 border-[#D4AF37] text-white shadow-[0_0_15px_rgba(212,175,55,0.15)]'
+                        : 'bg-[#0a0a0a] border-white/10 text-white/50 hover:border-white/20'
+                    }`}
+                  >
+                    <div className={`p-2 rounded ${!formIsConsignment ? 'bg-[#D4AF37] text-black' : 'bg-white/5 text-white/40'}`}>
+                      <CarFront className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="block text-xs font-bold font-serif text-white">Vehículo Propio</span>
+                        {!formIsConsignment && (
+                          <span className="px-1.5 py-0.5 bg-[#D4AF37] text-black text-[8px] font-bold uppercase rounded">
+                            Seleccionado
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[10px] text-white/50 leading-relaxed block mt-1">
+                        Comprado por la agencia. Capital y stock perteneciente a Black Swan Motors.
+                      </span>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFormIsConsignment(true)}
+                    className={`p-3.5 text-left border rounded transition-all flex items-start gap-3 cursor-pointer ${
+                      formIsConsignment
+                        ? 'bg-purple-950/40 border-purple-500 text-white shadow-[0_0_18px_rgba(168,85,247,0.2)]'
+                        : 'bg-[#0a0a0a] border-white/10 text-white/50 hover:border-white/20'
+                    }`}
+                  >
+                    <div className={`p-2 rounded ${formIsConsignment ? 'bg-purple-600 text-white' : 'bg-white/5 text-white/40'}`}>
+                      <Handshake className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="block text-xs font-bold font-serif text-white">Auto a Concesión</span>
+                        <span className="px-1.5 py-0.5 bg-purple-500/30 text-purple-300 border border-purple-500/40 text-[8px] font-bold uppercase rounded font-mono">
+                          Consignación
+                        </span>
+                        {formIsConsignment && (
+                          <span className="px-1.5 py-0.5 bg-purple-600 text-white text-[8px] font-bold uppercase rounded">
+                            Activo
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[10px] text-white/50 leading-relaxed block mt-1">
+                        Vehículo de un cliente o tercero dejado en la agencia para su comercialización.
+                      </span>
+                    </div>
+                  </button>
+                </div>
+
+                {/* Sub-formulario detallado de concesión si está marcado */}
+                {formIsConsignment && (
+                  <div className="bg-purple-950/20 border border-purple-500/30 p-4 space-y-4 rounded animate-fadeIn">
+                    <div className="flex items-center justify-between gap-2 border-b border-purple-500/20 pb-2">
+                      <div className="flex items-center gap-2 text-purple-300">
+                        <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                        <span className="text-[10px] uppercase font-bold tracking-wider font-mono">
+                          Ficha de Concesión & Datos del Titular
+                        </span>
+                      </div>
+                      <span className="text-[9px] text-purple-400/70 font-mono">
+                        Información administrativa y contractual
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[10px] uppercase tracking-widest text-purple-300 font-semibold mb-1">
+                          Titular / Dueño del Auto (Nombre y Apellido) *
+                        </label>
+                        <input
+                          type="text"
+                          required={formIsConsignment}
+                          value={formConsignmentOwnerName}
+                          onChange={(e) => setFormConsignmentOwnerName(e.target.value)}
+                          placeholder="Ej: Marcelo Gómez (Titular registral)"
+                          className="w-full bg-[#0a0a0a] border border-purple-500/40 focus:border-purple-400 px-3 py-2 text-white text-xs focus:outline-none"
+                        />
+                        <span className="text-[9px] text-white/40 mt-1 block">
+                          Persona física o jurídica propietaria del vehículo
+                        </span>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] uppercase tracking-widest text-purple-300 font-semibold mb-1">
+                          Teléfono / WhatsApp de Contacto del Titular
+                        </label>
+                        <input
+                          type="text"
+                          value={formConsignmentOwnerPhone}
+                          onChange={(e) => setFormConsignmentOwnerPhone(e.target.value)}
+                          placeholder="Ej: +54 9 11 5555-1234"
+                          className="w-full bg-[#0a0a0a] border border-purple-500/40 focus:border-purple-400 px-3 py-2 text-white text-xs focus:outline-none"
+                        />
+                        <span className="text-[9px] text-white/40 mt-1 block">
+                          Para avisos de ofertas, visitas y liquidación final
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[10px] uppercase tracking-widest text-purple-300 font-semibold mb-1">
+                          Monto a Rendir al Dueño en la Venta (USD)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="100"
+                          value={formConsignmentAgreedPayoutUsd}
+                          onChange={(e) => {
+                            const val = e.target.value === '' ? '' : Number(e.target.value);
+                            setFormConsignmentAgreedPayoutUsd(val);
+                            if (val !== '' && (formPurchasePriceUsd === '' || Number(formPurchasePriceUsd) === 0)) {
+                              setFormPurchasePriceUsd(val);
+                            }
+                          }}
+                          placeholder="Ej: 22000"
+                          className="w-full bg-[#0a0a0a] border border-purple-500/40 focus:border-purple-400 px-3 py-2 text-white text-xs font-mono focus:outline-none"
+                        />
+                        <span className="text-[9px] text-white/40 mt-1 block">
+                          Importe neto pactado que recibirá el titular una vez vendido el vehículo
+                        </span>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] uppercase tracking-widest text-purple-300 font-semibold mb-1">
+                          Comisión de la Agencia (%) o Fija
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.5"
+                          value={formConsignmentCommissionRate}
+                          onChange={(e) => setFormConsignmentCommissionRate(e.target.value === '' ? '' : Number(e.target.value))}
+                          placeholder="Ej: 5 (5% pactado)"
+                          className="w-full bg-[#0a0a0a] border border-purple-500/40 focus:border-purple-400 px-3 py-2 text-white text-xs font-mono focus:outline-none"
+                        />
+                        <span className="text-[9px] text-white/40 mt-1 block">
+                          Comisión porcentual acordada sobre la operación
+                        </span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] uppercase tracking-widest text-purple-300 font-semibold mb-1">
+                        Observaciones y Condiciones del Contrato de Concesión
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={formConsignmentNotes}
+                        onChange={(e) => setFormConsignmentNotes(e.target.value)}
+                        placeholder="Ej: Contrato de consignación por 60 días. Dejó 08 firmado ante escribano, duplicado de llave y cédula. Seguro al día."
+                        className="w-full bg-[#0a0a0a] border border-purple-500/40 focus:border-purple-400 px-3 py-2 text-white text-xs focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* COMPRA Y VALORIZACIÓN: COSTOS Y RENDIMIENTO */}
+              <div className={`bg-[#050505] border p-5 space-y-4 ${formIsConsignment ? 'border-purple-500/30' : 'border-[#D4AF37]/30'}`}>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-3">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className={`w-4 h-4 ${formIsConsignment ? 'text-purple-400' : 'text-[#D4AF37]'}`} />
+                    <span className="text-xs font-serif text-white uppercase tracking-wider font-semibold">
+                      {formIsConsignment
+                        ? 'Finanzas: Rendimiento & Liquidación de Concesión'
+                        : 'Finanzas: Compra del Auto & Rendimiento Comercial'}
                     </span>
                   </div>
                   <span className="text-[10px] text-white/40 font-mono">
-                    Control de Costos de Adquisición y Margen
+                    {formIsConsignment
+                      ? 'Rendimiento pactado con el dueño de la concesión'
+                      : 'Control de Costos de Adquisición y Margen'}
                   </span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-[10px] uppercase tracking-widest text-[#D4AF37] font-bold mb-1">
-                      ¿A cuánto compramos el auto? (USD)
+                    <label className={`block text-[10px] uppercase tracking-widest font-bold mb-1 ${formIsConsignment ? 'text-purple-300' : 'text-[#D4AF37]'}`}>
+                      {formIsConsignment ? 'Liquidación Pactada al Dueño (USD)' : '¿A cuánto compramos el auto? (USD)'}
                     </label>
                     <input
                       type="number"
@@ -2293,17 +2636,17 @@ export const AdminView: React.FC<AdminViewProps> = ({
                       step="100"
                       value={formPurchasePriceUsd}
                       onChange={(e) => setFormPurchasePriceUsd(e.target.value === '' ? '' : Number(e.target.value))}
-                      placeholder="Ej: 18000"
-                      className="w-full bg-[#0a0a0a] border border-[#D4AF37]/40 focus:border-[#D4AF37] px-3 py-2 text-white text-xs font-mono focus:outline-none"
+                      placeholder={formIsConsignment ? 'Ej: 22000' : 'Ej: 18000'}
+                      className={`w-full bg-[#0a0a0a] border px-3 py-2 text-white text-xs font-mono focus:outline-none ${formIsConsignment ? 'border-purple-500/40 focus:border-purple-400' : 'border-[#D4AF37]/40 focus:border-[#D4AF37]'}`}
                     />
                     <span className="text-[9px] text-white/40 mt-1 block">
-                      Precio de adquisición pagado al dueño anterior
+                      {formIsConsignment ? 'Monto neto que se le pagará al titular al vender' : 'Precio de adquisición pagado al dueño anterior'}
                     </span>
                   </div>
 
                   <div>
                     <label className="block text-[10px] uppercase tracking-widest text-white/60 mb-1">
-                      Gastos Adicionales / Puesta a Punto (USD)
+                      {formIsConsignment ? 'Gastos de Publicación / Acondicionamiento (USD)' : 'Gastos Adicionales / Puesta a Punto (USD)'}
                     </label>
                     <input
                       type="number"
@@ -2321,7 +2664,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
                   <div>
                     <label className="block text-[10px] uppercase tracking-widest text-white/60 mb-1">
-                      Fecha de Adquisición / Ingreso
+                      {formIsConsignment ? 'Fecha de Ingreso a Concesión' : 'Fecha de Adquisición / Ingreso'}
                     </label>
                     <input
                       type="date"
@@ -2339,7 +2682,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
                 {formPurchasePriceUsd !== '' && Number(formPurchasePriceUsd) > 0 && (
                   <div className="p-3.5 bg-white/[0.03] border border-white/10 flex flex-wrap items-center justify-between gap-4">
                     <div className="space-y-0.5">
-                      <span className="text-[9px] uppercase tracking-wider text-white/40 block">Costo Total Invertido</span>
+                      <span className="text-[9px] uppercase tracking-wider text-white/40 block">
+                        {formIsConsignment ? 'Liquidación + Gastos' : 'Costo Total Invertido'}
+                      </span>
                       <span className="text-xs font-mono text-white font-bold">
                         ${(Number(formPurchasePriceUsd) + (Number(formPurchaseExpensesUsd) || 0)).toLocaleString('en-US')} USD
                       </span>
@@ -2355,7 +2700,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
                     {!formPriceOnDemand && (
                       <>
                         <div className="space-y-0.5">
-                          <span className="text-[9px] uppercase tracking-wider text-white/40 block">Rendimiento Proyectado</span>
+                          <span className="text-[9px] uppercase tracking-wider text-white/40 block">
+                            {formIsConsignment ? 'Comisión / Ganancia Agencia' : 'Rendimiento Proyectado'}
+                          </span>
                           {(() => {
                             const totalCost = Number(formPurchasePriceUsd) + (Number(formPurchaseExpensesUsd) || 0);
                             const profit = Number(formPriceUsd || 0) - totalCost;
@@ -2369,7 +2716,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
                         </div>
 
                         <div className="space-y-0.5">
-                          <span className="text-[9px] uppercase tracking-wider text-white/40 block">Margen de Rendimiento (ROI)</span>
+                          <span className="text-[9px] uppercase tracking-wider text-white/40 block">
+                            {formIsConsignment ? 'Margen sobre Liquidación' : 'Margen de Rendimiento (ROI)'}
+                          </span>
                           {(() => {
                             const totalCost = Number(formPurchasePriceUsd) + (Number(formPurchaseExpensesUsd) || 0);
                             const profit = Number(formPriceUsd || 0) - totalCost;

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
-import { Car, Review, Inquiry } from './types';
+import { Car, Review, Inquiry, AgencySettings } from './types';
 import { storage } from './utils/storage';
 import { auth, signInWithGoogle, logOut, firebaseSync, isUserAdmin } from './firebase';
 import { Navbar } from './components/Navbar';
@@ -20,6 +20,7 @@ export default function App() {
   const [cars, setCars] = useState<Car[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
+  const [agencySettings, setAgencySettings] = useState<AgencySettings>(() => storage.getAgencySettings());
   const [selectedCar, setSelectedCar] = useState<Car | null>(null);
   const [catalogInitialFilters, setCatalogInitialFilters] = useState<any>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -31,6 +32,7 @@ export default function App() {
     setCars(storage.getCars());
     setReviews(storage.getReviews());
     setInquiries(storage.getInquiries());
+    setAgencySettings(storage.getAgencySettings());
   };
 
   useEffect(() => {
@@ -98,6 +100,14 @@ export default function App() {
       }
     });
 
+    // 10. Real-time Firestore sync for agency settings (Domicilio, horarios, portada)
+    const unsubscribeAgency = firebaseSync.subscribeAgencySettings((firestoreAgency) => {
+      if (firestoreAgency) {
+        storage.setAgencySettingsFromFirebase(firestoreAgency);
+        setAgencySettings(storage.getAgencySettings());
+      }
+    });
+
     // 10. Route sync
     const pathname = window.location.pathname.toLowerCase();
     if (pathname.includes('/admin')) {
@@ -133,6 +143,7 @@ export default function App() {
       unsubscribeQuotations();
       unsubscribeAdmins();
       unsubscribeExpenses();
+      unsubscribeAgency();
       window.removeEventListener('popstate', handlePopState);
     };
   }, []);
@@ -199,6 +210,7 @@ export default function App() {
             cars={cars} 
             onSelectCar={(car) => setSelectedCar(car)} 
             onNavigate={handleNavigate}
+            agencySettings={agencySettings}
           />
         )}
 
@@ -218,11 +230,11 @@ export default function App() {
         )}
 
         {currentTab === 'location' && (
-          <LocationView />
+          <LocationView agencySettings={agencySettings} />
         )}
 
         {currentTab === 'contact' && (
-          <ContactView />
+          <ContactView agencySettings={agencySettings} />
         )}
 
         {currentTab === 'admin' && (
@@ -240,7 +252,7 @@ export default function App() {
       </main>
 
       {/* Footer (Hidden in Admin View for dedicated dashboard experience) */}
-      {currentTab !== 'admin' && <Footer onNavigate={handleNavigate} />}
+      {currentTab !== 'admin' && <Footer onNavigate={handleNavigate} agencySettings={agencySettings} />}
 
       {/* Vehicle Detail Modal */}
       <CarDetailModal 
@@ -249,7 +261,12 @@ export default function App() {
       />
 
       {/* Floating WhatsApp Action Button (Hidden in Admin View) */}
-      {currentTab !== 'admin' && <FloatingWhatsApp />}
+      {currentTab !== 'admin' && (
+        <FloatingWhatsApp 
+          phoneNumber={agencySettings.whatsappClean} 
+          defaultMessage={agencySettings.whatsappDefaultMessage} 
+        />
+      )}
 
       {/* Secure Multi-Method Authentication Modal */}
       <AuthModal 

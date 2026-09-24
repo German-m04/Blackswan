@@ -79,6 +79,11 @@ export const CarCard: React.FC<CarCardProps> = ({ car, onSelect }) => {
                   Único Dueño
                 </span>
               )}
+              {car.isConsignment && (
+                <span className="px-2 py-0.5 text-[9px] uppercase tracking-wider bg-purple-950/90 border border-purple-500/50 text-purple-200 backdrop-blur-md rounded-md font-medium">
+                  A Concesión
+                </span>
+              )}
             </div>
 
             {/* Status Pill */}

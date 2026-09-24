@@ -1,5 +1,5 @@
-import { Car, Review, Inquiry, Customer, Quotation, VehicleBrand, AdminUser, Expense } from '../types';
-import { INITIAL_CARS, INITIAL_REVIEWS, INITIAL_INQUIRIES, INITIAL_CUSTOMERS, INITIAL_QUOTATIONS } from '../data/initialData';
+import { Car, Review, Inquiry, Customer, Quotation, VehicleBrand, AdminUser, Expense, AgencySettings } from '../types';
+import { INITIAL_CARS, INITIAL_REVIEWS, INITIAL_INQUIRIES, INITIAL_CUSTOMERS, INITIAL_QUOTATIONS, DEFAULT_AGENCY_SETTINGS } from '../data/initialData';
 import { INITIAL_BRANDS, formatBrandId } from '../data/initialBrands';
 import { firebaseSync } from '../firebase';
 
@@ -9,8 +9,10 @@ const INQUIRIES_KEY = 'blackswan_inquiries_v1';
 const CUSTOMERS_KEY = 'blackswan_customers_v1';
 const QUOTATIONS_KEY = 'blackswan_quotations_v1';
 const EXPENSES_KEY = 'blackswan_expenses_v1';
+const DELETED_EXPENSES_KEY = 'blackswan_deleted_expenses_v1';
 const BRANDS_KEY = 'blackswan_brands_v1';
 const ADMINS_KEY = 'blackswan_admins_v1';
+const AGENCY_SETTINGS_KEY = 'blackswan_agency_settings_v1';
 
 const DEFAULT_ADMIN_ACCOUNTS: AdminUser[] = [
   {
@@ -393,11 +395,31 @@ class StorageService {
   }
 
   // --- FINANCES & EXPENSES (Sector Finanzas & Gastos) ---
+  private getDeletedExpenseIds(): Set<string> {
+    try {
+      const data = localStorage.getItem(DELETED_EXPENSES_KEY);
+      if (data) {
+        return new Set(JSON.parse(data));
+      }
+    } catch {}
+    return new Set();
+  }
+
+  private markExpenseAsDeleted(id: string) {
+    try {
+      const set = this.getDeletedExpenseIds();
+      set.add(id);
+      localStorage.setItem(DELETED_EXPENSES_KEY, JSON.stringify(Array.from(set)));
+    } catch {}
+  }
+
   public getExpenses(): Expense[] {
     try {
       const data = localStorage.getItem(EXPENSES_KEY);
       if (data !== null) {
-        return JSON.parse(data);
+        const parsed: Expense[] = JSON.parse(data);
+        const deletedSet = this.getDeletedExpenseIds();
+        return parsed.filter((e) => !deletedSet.has(e.id));
       }
       return [];
     } catch {
@@ -406,21 +428,24 @@ class StorageService {
   }
 
   public setExpensesFromFirebase(expenses: Expense[]) {
+    const deletedSet = this.getDeletedExpenseIds();
+    const safeRemote = expenses.filter((e) => !deletedSet.has(e.id));
     const local = this.getExpenses();
     const now = Date.now();
 
     // Conservar gastos creados localmente en los últimos 2 minutos que todavía no estén en el snapshot
     const recentLocal = local.filter((e) => {
+      if (deletedSet.has(e.id)) return false;
       if (e.id && e.id.startsWith('exp-')) {
         const timestamp = parseInt(e.id.replace('exp-', ''), 10);
         if (!isNaN(timestamp) && (now - timestamp) < 120000) {
-          return !expenses.some((fe) => fe.id === e.id);
+          return !safeRemote.some((fe) => fe.id === e.id);
         }
       }
       return false;
     });
 
-    const merged = [...recentLocal, ...expenses].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const merged = [...recentLocal, ...safeRemote].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     localStorage.setItem(EXPENSES_KEY, JSON.stringify(merged));
     this.notify();
 
@@ -432,7 +457,9 @@ class StorageService {
   }
 
   public saveExpenses(expenses: Expense[]) {
-    localStorage.setItem(EXPENSES_KEY, JSON.stringify(expenses));
+    const deletedSet = this.getDeletedExpenseIds();
+    const safeExpenses = expenses.filter((e) => !deletedSet.has(e.id));
+    localStorage.setItem(EXPENSES_KEY, JSON.stringify(safeExpenses));
     this.notify();
   }
 
@@ -492,6 +519,7 @@ class StorageService {
   }
 
   public async deleteExpense(id: string): Promise<void> {
+    this.markExpenseAsDeleted(id);
     const expenses = this.getExpenses();
     const target = expenses.find((e) => e.id === id);
     const filtered = expenses.filter((e) => e.id !== id);
@@ -788,6 +816,55 @@ class StorageService {
     } catch (err) {
       console.warn('Firebase deleteAdmin notice:', err);
     }
+  }
+
+  // --- AGENCY SETTINGS (Domicilio, Horarios & Contenido de Inicio) ---
+  public getAgencySettings(): AgencySettings {
+    try {
+      const data = localStorage.getItem(AGENCY_SETTINGS_KEY);
+      if (data !== null) {
+        const parsed = JSON.parse(data);
+        return {
+          ...DEFAULT_AGENCY_SETTINGS,
+          ...parsed
+        };
+      }
+      return DEFAULT_AGENCY_SETTINGS;
+    } catch {
+      return DEFAULT_AGENCY_SETTINGS;
+    }
+  }
+
+  public setAgencySettingsFromFirebase(settings: Partial<AgencySettings>) {
+    if (!settings || typeof settings !== 'object') return;
+    const current = this.getAgencySettings();
+    const merged: AgencySettings = {
+      ...current,
+      ...settings,
+      locationFeatures: Array.isArray(settings.locationFeatures) && settings.locationFeatures.length > 0 
+        ? settings.locationFeatures 
+        : current.locationFeatures
+    };
+    localStorage.setItem(AGENCY_SETTINGS_KEY, JSON.stringify(merged));
+    this.notify();
+  }
+
+  public saveAgencySettings(settings: AgencySettings) {
+    const fullSettings: AgencySettings = {
+      ...DEFAULT_AGENCY_SETTINGS,
+      ...settings,
+      updatedAt: new Date().toISOString()
+    };
+    localStorage.setItem(AGENCY_SETTINGS_KEY, JSON.stringify(fullSettings));
+    this.notify();
+    firebaseSync.saveAgencySettings(fullSettings).catch((err) => {
+      console.warn('Firebase saveAgencySettings notice:', err);
+    });
+  }
+
+  public resetAgencySettings(): AgencySettings {
+    this.saveAgencySettings(DEFAULT_AGENCY_SETTINGS);
+    return DEFAULT_AGENCY_SETTINGS;
   }
 }
 

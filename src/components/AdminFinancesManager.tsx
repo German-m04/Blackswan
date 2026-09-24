@@ -60,9 +60,9 @@ const EXPENSE_CATEGORIES: ExpenseCategory[] = [
 ];
 
 const PAYMENT_METHODS: ExpensePaymentMethod[] = [
-  'Efectivo USD',
   'Efectivo ARS',
   'Transferencia Bancaria',
+  'Efectivo USD',
   'Cheque',
   'Tarjeta / MP',
   'Otro'
@@ -76,6 +76,18 @@ export const AdminFinancesManager: React.FC<AdminFinancesManagerProps> = ({
 }) => {
   // Navigation sub-tab
   const [subTab, setSubTab] = useState<'balance' | 'expenses' | 'stock'>('balance');
+
+  // Reference Exchange rate (ARS per 1 USD) - customizable and persisted in localStorage
+  const [exchangeRate, setExchangeRate] = useState<number>(() => {
+    const saved = localStorage.getItem('blackswan_finance_exchange_rate');
+    return saved ? Number(saved) || 1350 : 1350;
+  });
+
+  const handleExchangeRateChange = (val: number) => {
+    const validVal = Math.max(1, val);
+    setExchangeRate(validVal);
+    localStorage.setItem('blackswan_finance_exchange_rate', String(validVal));
+  };
 
   // Expense filters & search
   const [searchQuery, setSearchQuery] = useState('');
@@ -95,16 +107,20 @@ export const AdminFinancesManager: React.FC<AdminFinancesManagerProps> = ({
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
 
-  // Form states
+  // Modal state for Confirm Delete Expense
+  const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
+  const [isDeletingExpense, setIsDeletingExpense] = useState(false);
+
+  // Form states (Default to ARS as primary currency)
   const [formConcept, setFormConcept] = useState('');
   const [formType, setFormType] = useState<ExpenseType>('Directo de Vehículo');
   const [formCategory, setFormCategory] = useState<ExpenseCategory>('Taller Mecánico & Mantenimiento');
   const [formCarId, setFormCarId] = useState<string>('');
-  const [formAmountUsd, setFormAmountUsd] = useState<number | ''>('');
   const [formAmountArs, setFormAmountArs] = useState<number | ''>('');
-  const [formExchangeRate, setFormExchangeRate] = useState<number>(1350);
+  const [formAmountUsd, setFormAmountUsd] = useState<number | ''>('');
+  const [formExchangeRate, setFormExchangeRate] = useState<number>(exchangeRate);
   const [formDate, setFormDate] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [formPaymentMethod, setFormPaymentMethod] = useState<ExpensePaymentMethod>('Efectivo USD');
+  const [formPaymentMethod, setFormPaymentMethod] = useState<ExpensePaymentMethod>('Efectivo ARS');
   const [formStatus, setFormStatus] = useState<ExpenseStatus>('Pagado');
   const [formSupplier, setFormSupplier] = useState('');
   const [formReceiptNumber, setFormReceiptNumber] = useState('');
@@ -112,20 +128,69 @@ export const AdminFinancesManager: React.FC<AdminFinancesManagerProps> = ({
   const [formImpactCarExpenses, setFormImpactCarExpenses] = useState(true);
 
   // Helpers format
-  const formatUsd = (val: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      maximumFractionDigits: 0
-    }).format(val);
-  };
-
   const formatArs = (val: number) => {
     return new Intl.NumberFormat('es-AR', {
       style: 'currency',
       currency: 'ARS',
       maximumFractionDigits: 0
-    }).format(val);
+    }).format(val || 0);
+  };
+
+  const formatUsd = (val: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      maximumFractionDigits: 0
+    }).format(val || 0);
+  };
+
+  // Helper to normalize an expense into both ARS (primary) and USD (secondary)
+  const getExpenseAmounts = (e: Expense) => {
+    const rate = e.exchangeRate || exchangeRate || 1350;
+    let ars = typeof e.amountArs === 'number' && e.amountArs > 0 ? e.amountArs : 0;
+    let usd = typeof e.amountUsd === 'number' && e.amountUsd > 0 ? e.amountUsd : 0;
+
+    if (ars > 0 && usd <= 0) {
+      usd = Math.round(ars / rate);
+    } else if (usd > 0 && ars <= 0) {
+      ars = Math.round(usd * rate);
+    }
+    return { ars, usd };
+  };
+
+  // Helper to calculate financials for a car in both ARS and USD
+  const getCarFinancials = (c: Car) => {
+    const rate = exchangeRate || 1350;
+
+    const purchaseBaseUsd = c.purchasePriceUsd || 0;
+    const purchaseBaseArs = purchaseBaseUsd * rate;
+
+    const directExpensesUsd = c.purchaseExpensesUsd || 0;
+    const directExpensesArs = directExpensesUsd * rate;
+
+    const totalCostUsd = purchaseBaseUsd + directExpensesUsd;
+    const totalCostArs = purchaseBaseArs + directExpensesArs;
+
+    const salePriceArs = c.priceArs || ((c.priceUsd || 0) * rate);
+    const salePriceUsd = c.priceUsd || (c.priceArs ? Math.round(c.priceArs / rate) : 0);
+
+    const profitUsd = salePriceUsd - totalCostUsd;
+    const profitArs = salePriceArs - totalCostArs;
+    const roiPercent = totalCostUsd > 0 ? (profitUsd / totalCostUsd) * 100 : 0;
+
+    return {
+      purchaseBaseUsd,
+      purchaseBaseArs,
+      directExpensesUsd,
+      directExpensesArs,
+      totalCostUsd,
+      totalCostArs,
+      salePriceUsd,
+      salePriceArs,
+      profitUsd,
+      profitArs,
+      roiPercent
+    };
   };
 
   // -----------------------------------------------------------------
@@ -139,112 +204,160 @@ export const AdminFinancesManager: React.FC<AdminFinancesManagerProps> = ({
     return cars.filter((c) => c.status === 'Vendido');
   }, [cars]);
 
-  // Total sales valuation of current stock
-  const totalStockSaleUsd = useMemo(() => {
-    return activeStockCars.reduce((acc, c) => acc + (c.priceUsd || 0), 0);
-  }, [activeStockCars]);
+  // Aggregate stock financial figures
+  const stockTotals = useMemo(() => {
+    let saleArs = 0;
+    let saleUsd = 0;
+    let costArs = 0;
+    let costUsd = 0;
+    let purchaseBaseArs = 0;
+    let purchaseBaseUsd = 0;
+    let directExpensesArs = 0;
+    let directExpensesUsd = 0;
 
-  // Total investment in active stock (Purchase base price + Direct assigned expenses)
-  const totalStockPurchaseBaseUsd = useMemo(() => {
-    return activeStockCars.reduce((acc, c) => acc + (c.purchasePriceUsd || 0), 0);
-  }, [activeStockCars]);
+    activeStockCars.forEach((c) => {
+      const f = getCarFinancials(c);
+      saleArs += f.salePriceArs;
+      saleUsd += f.salePriceUsd;
+      costArs += f.totalCostArs;
+      costUsd += f.totalCostUsd;
+      purchaseBaseArs += f.purchaseBaseArs;
+      purchaseBaseUsd += f.purchaseBaseUsd;
+      directExpensesArs += f.directExpensesArs;
+      directExpensesUsd += f.directExpensesUsd;
+    });
 
-  const totalStockDirectExpensesUsd = useMemo(() => {
-    return activeStockCars.reduce((acc, c) => acc + (c.purchaseExpensesUsd || 0), 0);
-  }, [activeStockCars]);
+    const grossProfitArs = saleArs - costArs;
+    const grossProfitUsd = saleUsd - costUsd;
+    const grossMarginPercent = costUsd > 0 ? (grossProfitUsd / costUsd) * 100 : 0;
 
-  const totalStockInvestmentUsd = useMemo(() => {
-    return totalStockPurchaseBaseUsd + totalStockDirectExpensesUsd;
-  }, [totalStockPurchaseBaseUsd, totalStockDirectExpensesUsd]);
-
-  // Potential gross margin of active stock
-  const potentialGrossProfitUsd = useMemo(() => {
-    return totalStockSaleUsd - totalStockInvestmentUsd;
-  }, [totalStockSaleUsd, totalStockInvestmentUsd]);
-
-  const potentialGrossMarginPercent = useMemo(() => {
-    if (totalStockInvestmentUsd <= 0) return 0;
-    return (potentialGrossProfitUsd / totalStockInvestmentUsd) * 100;
-  }, [potentialGrossProfitUsd, totalStockInvestmentUsd]);
+    return {
+      saleArs,
+      saleUsd,
+      costArs,
+      costUsd,
+      purchaseBaseArs,
+      purchaseBaseUsd,
+      directExpensesArs,
+      directExpensesUsd,
+      grossProfitArs,
+      grossProfitUsd,
+      grossMarginPercent
+    };
+  }, [activeStockCars, exchangeRate]);
 
   // -----------------------------------------------------------------
   // FINANCIAL CALCULATIONS: EXPENSES
   // -----------------------------------------------------------------
-  const totalExpensesUsd = useMemo(() => {
-    return expenses.reduce((acc, e) => acc + (e.amountUsd || 0), 0);
-  }, [expenses]);
+  const expensesTotals = useMemo(() => {
+    let totalArs = 0;
+    let totalUsd = 0;
+    let directArs = 0;
+    let directUsd = 0;
+    let operatingArs = 0;
+    let operatingUsd = 0;
+    let paidArs = 0;
+    let paidUsd = 0;
+    let pendingArs = 0;
+    let pendingUsd = 0;
 
-  const directVehicleExpensesUsd = useMemo(() => {
-    return expenses.filter((e) => e.type === 'Directo de Vehículo').reduce((acc, e) => acc + (e.amountUsd || 0), 0);
-  }, [expenses]);
+    expenses.forEach((e) => {
+      const { ars, usd } = getExpenseAmounts(e);
+      totalArs += ars;
+      totalUsd += usd;
 
-  const operatingExpensesUsd = useMemo(() => {
-    return expenses.filter((e) => e.type === 'Operativo / Concesionario').reduce((acc, e) => acc + (e.amountUsd || 0), 0);
-  }, [expenses]);
+      if (e.type === 'Directo de Vehículo') {
+        directArs += ars;
+        directUsd += usd;
+      } else {
+        operatingArs += ars;
+        operatingUsd += usd;
+      }
 
-  const paidExpensesUsd = useMemo(() => {
-    return expenses.filter((e) => e.status === 'Pagado').reduce((acc, e) => acc + (e.amountUsd || 0), 0);
-  }, [expenses]);
+      if (e.status === 'Pagado') {
+        paidArs += ars;
+        paidUsd += usd;
+      } else {
+        pendingArs += ars;
+        pendingUsd += usd;
+      }
+    });
 
-  const pendingExpensesUsd = useMemo(() => {
-    return expenses.filter((e) => e.status === 'Pendiente').reduce((acc, e) => acc + (e.amountUsd || 0), 0);
-  }, [expenses]);
+    const netBalanceArs = stockTotals.grossProfitArs - operatingArs;
+    const netBalanceUsd = stockTotals.grossProfitUsd - operatingUsd;
+
+    return {
+      totalArs,
+      totalUsd,
+      directArs,
+      directUsd,
+      operatingArs,
+      operatingUsd,
+      paidArs,
+      paidUsd,
+      pendingArs,
+      pendingUsd,
+      netBalanceArs,
+      netBalanceUsd
+    };
+  }, [expenses, stockTotals, exchangeRate]);
 
   const pendingExpensesCount = useMemo(() => {
     return expenses.filter((e) => e.status === 'Pendiente').length;
   }, [expenses]);
 
-  // Net Estimated Business Balance = Potential Gross Profit from Stock - Total Operating Dealership Expenses
-  const estimatedNetBalanceUsd = useMemo(() => {
-    return potentialGrossProfitUsd - operatingExpensesUsd;
-  }, [potentialGrossProfitUsd, operatingExpensesUsd]);
-
-  // Breakdown by Category
+  // Breakdown by Category (ARS primary, USD secondary)
   const categoryBreakdown = useMemo(() => {
-    const map: Record<string, { count: number; totalUsd: number; type: ExpenseType }> = {};
+    const map: Record<string, { count: number; totalArs: number; totalUsd: number; type: ExpenseType }> = {};
 
     expenses.forEach((e) => {
       const cat = e.category || 'Otro Gasto';
+      const { ars, usd } = getExpenseAmounts(e);
       if (!map[cat]) {
-        map[cat] = { count: 0, totalUsd: 0, type: e.type };
+        map[cat] = { count: 0, totalArs: 0, totalUsd: 0, type: e.type };
       }
       map[cat].count++;
-      map[cat].totalUsd += e.amountUsd || 0;
+      map[cat].totalArs += ars;
+      map[cat].totalUsd += usd;
     });
 
     return Object.entries(map)
       .map(([category, data]) => ({
         category,
         count: data.count,
+        totalArs: data.totalArs,
         totalUsd: data.totalUsd,
         type: data.type,
-        percentage: totalExpensesUsd > 0 ? (data.totalUsd / totalExpensesUsd) * 100 : 0
+        percentage: expensesTotals.totalArs > 0 ? (data.totalArs / expensesTotals.totalArs) * 100 : 0
       }))
-      .sort((a, b) => b.totalUsd - a.totalUsd);
-  }, [expenses, totalExpensesUsd]);
+      .sort((a, b) => b.totalArs - a.totalArs);
+  }, [expenses, expensesTotals.totalArs, exchangeRate]);
 
-  // Breakdown by Payment Method
+  // Breakdown by Payment Method (ARS primary, USD secondary)
   const paymentMethodBreakdown = useMemo(() => {
-    const map: Record<string, { count: number; totalUsd: number }> = {};
+    const map: Record<string, { count: number; totalArs: number; totalUsd: number }> = {};
 
     expenses.forEach((e) => {
       const pm = e.paymentMethod || 'Otro';
+      const { ars, usd } = getExpenseAmounts(e);
       if (!map[pm]) {
-        map[pm] = { count: 0, totalUsd: 0 };
+        map[pm] = { count: 0, totalArs: 0, totalUsd: 0 };
       }
       map[pm].count++;
-      map[pm].totalUsd += e.amountUsd || 0;
+      map[pm].totalArs += ars;
+      map[pm].totalUsd += usd;
     });
 
     return Object.entries(map)
       .map(([method, data]) => ({
         method,
         count: data.count,
+        totalArs: data.totalArs,
         totalUsd: data.totalUsd,
-        percentage: totalExpensesUsd > 0 ? (data.totalUsd / totalExpensesUsd) * 100 : 0
+        percentage: expensesTotals.totalArs > 0 ? (data.totalArs / expensesTotals.totalArs) * 100 : 0
       }))
-      .sort((a, b) => b.totalUsd - a.totalUsd);
-  }, [expenses, totalExpensesUsd]);
+      .sort((a, b) => b.totalArs - a.totalArs);
+  }, [expenses, expensesTotals.totalArs, exchangeRate]);
 
   // -----------------------------------------------------------------
   // FILTERED EXPENSES TABLE
@@ -257,26 +370,17 @@ export const AdminFinancesManager: React.FC<AdminFinancesManagerProps> = ({
     const currentYear = `${now.getFullYear()}`;
 
     return expenses.filter((e) => {
-      // Search
       const matchesSearch = !searchQuery.trim() ||
         e.concept.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (e.supplier && e.supplier.toLowerCase().includes(searchQuery.toLowerCase())) ||
         (e.receiptNumber && e.receiptNumber.toLowerCase().includes(searchQuery.toLowerCase())) ||
         (e.carTitle && e.carTitle.toLowerCase().includes(searchQuery.toLowerCase()));
 
-      // Type
       const matchesType = typeFilter === 'TODOS' || e.type === typeFilter;
-
-      // Category
       const matchesCategory = categoryFilter === 'TODAS' || e.category === categoryFilter;
-
-      // Status
       const matchesStatus = statusFilter === 'TODOS' || e.status === statusFilter;
-
-      // Car
       const matchesCar = selectedCarFilter === 'TODOS' || e.carId === selectedCarFilter;
 
-      // Time
       let matchesTime = true;
       if (timeFilter === 'THIS_MONTH') {
         matchesTime = e.date.startsWith(currentMonth);
@@ -289,6 +393,18 @@ export const AdminFinancesManager: React.FC<AdminFinancesManagerProps> = ({
       return matchesSearch && matchesType && matchesCategory && matchesStatus && matchesCar && matchesTime;
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [expenses, searchQuery, typeFilter, categoryFilter, statusFilter, selectedCarFilter, timeFilter]);
+
+  // Totals for the filtered list of expenses
+  const filteredExpensesTotals = useMemo(() => {
+    let ars = 0;
+    let usd = 0;
+    filteredExpenses.forEach((e) => {
+      const a = getExpenseAmounts(e);
+      ars += a.ars;
+      usd += a.usd;
+    });
+    return { ars, usd };
+  }, [filteredExpenses, exchangeRate]);
 
   // -----------------------------------------------------------------
   // FILTERED STOCK TABLE
@@ -310,23 +426,41 @@ export const AdminFinancesManager: React.FC<AdminFinancesManagerProps> = ({
 
       return searchMatch && statusMatch && brandMatch;
     }).sort((a, b) => {
-      const aCost = (a.purchasePriceUsd || 0) + (a.purchaseExpensesUsd || 0);
-      const bCost = (b.purchasePriceUsd || 0) + (b.purchaseExpensesUsd || 0);
-      const aProfit = (a.priceUsd || 0) - aCost;
-      const bProfit = (b.priceUsd || 0) - bCost;
-      const aRoi = aCost > 0 ? (aProfit / aCost) * 100 : 0;
-      const bRoi = bCost > 0 ? (bProfit / bCost) * 100 : 0;
+      const aF = getCarFinancials(a);
+      const bF = getCarFinancials(b);
 
-      if (stockSortBy === 'profit-desc') return bProfit - aProfit;
-      if (stockSortBy === 'cost-desc') return bCost - aCost;
-      if (stockSortBy === 'price-desc') return (b.priceUsd || 0) - (a.priceUsd || 0);
-      if (stockSortBy === 'roi-desc') return bRoi - aRoi;
+      if (stockSortBy === 'profit-desc') return bF.profitArs - aF.profitArs;
+      if (stockSortBy === 'cost-desc') return bF.totalCostArs - aF.totalCostArs;
+      if (stockSortBy === 'price-desc') return bF.salePriceArs - aF.salePriceArs;
+      if (stockSortBy === 'roi-desc') return bF.roiPercent - aF.roiPercent;
       return 0;
     });
-  }, [cars, stockSearch, stockStatusFilter, stockBrandFilter, stockSortBy]);
+  }, [cars, stockSearch, stockStatusFilter, stockBrandFilter, stockSortBy, exchangeRate]);
+
+  // Totals for the filtered list of cars
+  const filteredStockTotals = useMemo(() => {
+    let costArs = 0;
+    let costUsd = 0;
+    let saleArs = 0;
+    let saleUsd = 0;
+    let profitArs = 0;
+    let profitUsd = 0;
+
+    filteredStockCars.forEach((c) => {
+      const f = getCarFinancials(c);
+      costArs += f.totalCostArs;
+      costUsd += f.totalCostUsd;
+      saleArs += f.salePriceArs;
+      saleUsd += f.salePriceUsd;
+      profitArs += f.profitArs;
+      profitUsd += f.profitUsd;
+    });
+
+    return { costArs, costUsd, saleArs, saleUsd, profitArs, profitUsd };
+  }, [filteredStockCars, exchangeRate]);
 
   // -----------------------------------------------------------------
-  // MODAL HANDLERS FOR EXPENSE
+  // MODAL HANDLERS FOR EXPENSE (DEFAULT ARS)
   // -----------------------------------------------------------------
   const openAddExpenseModal = (preselectedCarId?: string) => {
     setEditingExpense(null);
@@ -334,11 +468,11 @@ export const AdminFinancesManager: React.FC<AdminFinancesManagerProps> = ({
     setFormType(preselectedCarId ? 'Directo de Vehículo' : 'Directo de Vehículo');
     setFormCategory('Taller Mecánico & Mantenimiento');
     setFormCarId(preselectedCarId || (cars[0]?.id || ''));
-    setFormAmountUsd('');
     setFormAmountArs('');
-    setFormExchangeRate(1350);
+    setFormAmountUsd('');
+    setFormExchangeRate(exchangeRate);
     setFormDate(new Date().toISOString().split('T')[0]);
-    setFormPaymentMethod('Efectivo USD');
+    setFormPaymentMethod('Efectivo ARS');
     setFormStatus('Pagado');
     setFormSupplier('');
     setFormReceiptNumber('');
@@ -353,9 +487,14 @@ export const AdminFinancesManager: React.FC<AdminFinancesManagerProps> = ({
     setFormType(expense.type);
     setFormCategory(expense.category);
     setFormCarId(expense.carId || '');
-    setFormAmountUsd(expense.amountUsd);
-    setFormAmountArs(expense.amountArs || '');
-    setFormExchangeRate(expense.exchangeRate || 1350);
+
+    const rate = expense.exchangeRate || exchangeRate || 1350;
+    setFormExchangeRate(rate);
+
+    const { ars, usd } = getExpenseAmounts(expense);
+    setFormAmountArs(ars > 0 ? ars : '');
+    setFormAmountUsd(usd > 0 ? usd : '');
+
     setFormDate(expense.date);
     setFormPaymentMethod(expense.paymentMethod);
     setFormStatus(expense.status);
@@ -368,9 +507,22 @@ export const AdminFinancesManager: React.FC<AdminFinancesManagerProps> = ({
 
   const handleSaveExpense = async (e: React.FormEvent) => {
     e.preventDefault();
-    const usdVal = Number(formAmountUsd) || 0;
-    if (usdVal <= 0) {
-      alert('Por favor ingrese un monto válido mayor a 0 en USD.');
+    const arsVal = Number(formAmountArs) || 0;
+    let usdVal = Number(formAmountUsd) || 0;
+    const rate = formExchangeRate || exchangeRate || 1350;
+
+    // Automatic bidirectional fallback
+    if (arsVal > 0 && usdVal <= 0) {
+      usdVal = Math.round(arsVal / rate);
+    } else if (usdVal > 0 && arsVal <= 0) {
+      // computed below
+    }
+
+    const finalArs = arsVal > 0 ? arsVal : Math.round(usdVal * rate);
+    const finalUsd = usdVal > 0 ? usdVal : Math.round(arsVal / rate);
+
+    if (finalArs <= 0 && finalUsd <= 0) {
+      alert('Por favor ingrese un monto válido mayor a 0 en Pesos Argentinos (ARS) o USD.');
       return;
     }
 
@@ -385,9 +537,9 @@ export const AdminFinancesManager: React.FC<AdminFinancesManagerProps> = ({
         category: formCategory,
         carId: formType === 'Directo de Vehículo' ? formCarId : undefined,
         carTitle: formType === 'Directo de Vehículo' ? carTitleStr : undefined,
-        amountUsd: usdVal,
-        amountArs: formAmountArs ? Number(formAmountArs) : undefined,
-        exchangeRate: formExchangeRate || 1350,
+        amountArs: finalArs,
+        amountUsd: finalUsd,
+        exchangeRate: rate,
         date: formDate,
         paymentMethod: formPaymentMethod,
         status: formStatus,
@@ -403,9 +555,9 @@ export const AdminFinancesManager: React.FC<AdminFinancesManagerProps> = ({
         category: formCategory,
         carId: formType === 'Directo de Vehículo' ? formCarId : undefined,
         carTitle: formType === 'Directo de Vehículo' ? carTitleStr : undefined,
-        amountUsd: usdVal,
-        amountArs: formAmountArs ? Number(formAmountArs) : undefined,
-        exchangeRate: formExchangeRate || 1350,
+        amountArs: finalArs,
+        amountUsd: finalUsd,
+        exchangeRate: rate,
         date: formDate,
         paymentMethod: formPaymentMethod,
         status: formStatus,
@@ -420,10 +572,21 @@ export const AdminFinancesManager: React.FC<AdminFinancesManagerProps> = ({
     onExpensesChanged();
   };
 
-  const handleDeleteExpense = async (id: string, concept: string) => {
-    if (window.confirm(`¿Desea eliminar el registro del gasto "${concept}"?`)) {
-      await storage.deleteExpense(id);
+  const handleDeleteExpense = (expense: Expense) => {
+    setExpenseToDelete(expense);
+  };
+
+  const handleConfirmDeleteExpense = async () => {
+    if (!expenseToDelete) return;
+    setIsDeletingExpense(true);
+    try {
+      await storage.deleteExpense(expenseToDelete.id);
+      setExpenseToDelete(null);
       onExpensesChanged();
+    } catch (err) {
+      console.error('Error al eliminar gasto:', err);
+    } finally {
+      setIsDeletingExpense(false);
     }
   };
 
@@ -436,16 +599,18 @@ export const AdminFinancesManager: React.FC<AdminFinancesManagerProps> = ({
     onExpensesChanged();
   };
 
-  // Convert ARS to USD or vice versa in modal
+  // Convert ARS (Primary) to USD (Secondary) or vice versa in modal
   const handleArsChange = (valStr: string) => {
     if (!valStr) {
       setFormAmountArs('');
+      setFormAmountUsd('');
       return;
     }
     const ars = Number(valStr);
     setFormAmountArs(ars);
-    if (formExchangeRate > 0) {
-      setFormAmountUsd(Math.round(ars / formExchangeRate));
+    const rate = formExchangeRate || exchangeRate || 1350;
+    if (rate > 0) {
+      setFormAmountUsd(Math.round(ars / rate));
     }
   };
 
@@ -456,8 +621,9 @@ export const AdminFinancesManager: React.FC<AdminFinancesManagerProps> = ({
     }
     const usd = Number(valStr);
     setFormAmountUsd(usd);
-    if (formExchangeRate > 0) {
-      setFormAmountArs(Math.round(usd * formExchangeRate));
+    const rate = formExchangeRate || exchangeRate || 1350;
+    if (rate > 0) {
+      setFormAmountArs(Math.round(usd * rate));
     }
   };
 
@@ -475,16 +641,37 @@ export const AdminFinancesManager: React.FC<AdminFinancesManagerProps> = ({
       {/* ========================================================= */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-4">
         <div>
-          <h2 className="text-xl font-serif text-white flex items-center gap-2.5">
-            <TrendingUp className="w-5 h-5 text-[#D4AF37]" />
-            <span>Finanzas & Control de Gastos</span>
-          </h2>
-          <p className="text-xs text-white/50 mt-1">
-            Gestión integral de valorización de stock, capital inmovilizado, gastos directos de taller y costos operativos del concesionario.
+          <div className="flex items-center gap-2 mb-1">
+            <h2 className="text-xl font-serif text-white flex items-center gap-2.5">
+              <TrendingUp className="w-5 h-5 text-[#D4AF37]" />
+              <span>Finanzas & Control de Gastos</span>
+            </h2>
+            <span className="px-2 py-0.5 bg-[#D4AF37]/15 text-[#D4AF37] border border-[#D4AF37]/30 text-[10px] font-bold uppercase tracking-wider">
+              ARS ($) Predeterminado
+            </span>
+          </div>
+          <p className="text-xs text-white/50">
+            Moneda principal: <strong className="text-white">Pesos Argentinos (ARS)</strong> · Moneda secundaria: <strong className="text-white/70">Dólares (USD)</strong>.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Reference exchange rate controller */}
+          <div className="flex items-center gap-1.5 bg-[#0a0a0a] border border-white/10 px-2.5 py-1 text-xs">
+            <span className="text-[10px] uppercase font-mono text-white/50">T/C Ref: 1 USD =</span>
+            <div className="relative flex items-center">
+              <span className="text-[11px] text-[#D4AF37] font-mono mr-0.5">$</span>
+              <input
+                type="number"
+                min={1}
+                value={exchangeRate}
+                onChange={(e) => handleExchangeRateChange(Number(e.target.value))}
+                className="w-16 bg-[#050505] border border-white/10 px-1.5 py-0.5 text-xs font-mono text-[#D4AF37] font-bold text-center focus:outline-none focus:border-[#D4AF37]"
+                title="Tipo de cambio de referencia (ARS por USD)"
+              />
+            </div>
+          </div>
+
           {/* Sub-tab Switcher */}
           <div className="bg-[#0a0a0a] border border-white/10 p-1 flex items-center gap-1">
             <button
@@ -554,11 +741,11 @@ export const AdminFinancesManager: React.FC<AdminFinancesManagerProps> = ({
             <span className="text-[10px] uppercase font-bold tracking-wider">Capital Invertido</span>
             <Wallet className="w-3.5 h-3.5 text-[#D4AF37]" />
           </div>
-          <div className="text-base font-serif font-bold text-white">
-            {formatUsd(totalStockInvestmentUsd)}
+          <div className="text-base font-serif font-bold text-white truncate" title={formatArs(stockTotals.costArs)}>
+            {formatArs(stockTotals.costArs)}
           </div>
-          <div className="text-[10px] text-white/40 mt-0.5">
-            {activeStockCars.length} autos en inventario
+          <div className="text-[10px] text-white/50 font-mono mt-0.5 truncate">
+            {formatUsd(stockTotals.costUsd)} · {activeStockCars.length} autos
           </div>
         </div>
 
@@ -568,11 +755,11 @@ export const AdminFinancesManager: React.FC<AdminFinancesManagerProps> = ({
             <span className="text-[10px] uppercase font-bold tracking-wider">Venta Proyectada</span>
             <DollarSign className="w-3.5 h-3.5 text-blue-400" />
           </div>
-          <div className="text-base font-serif font-bold text-white">
-            {formatUsd(totalStockSaleUsd)}
+          <div className="text-base font-serif font-bold text-white truncate" title={formatArs(stockTotals.saleArs)}>
+            {formatArs(stockTotals.saleArs)}
           </div>
-          <div className="text-[10px] text-blue-400/80 mt-0.5">
-            Precios de lista activos
+          <div className="text-[10px] text-blue-400/80 font-mono mt-0.5 truncate">
+            {formatUsd(stockTotals.saleUsd)} · Lista activa
           </div>
         </div>
 
@@ -582,11 +769,11 @@ export const AdminFinancesManager: React.FC<AdminFinancesManagerProps> = ({
             <span className="text-[10px] uppercase font-bold tracking-wider">Margen Bruto Flota</span>
             <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
           </div>
-          <div className="text-base font-serif font-bold text-emerald-400">
-            +{formatUsd(potentialGrossProfitUsd)}
+          <div className="text-base font-serif font-bold text-emerald-400 truncate" title={`+${formatArs(stockTotals.grossProfitArs)}`}>
+            +{formatArs(stockTotals.grossProfitArs)}
           </div>
-          <div className="text-[10px] text-emerald-400/80 mt-0.5">
-            ROI +{potentialGrossMarginPercent.toFixed(1)}% s/costo
+          <div className="text-[10px] text-emerald-400/80 font-mono mt-0.5 truncate">
+            +{formatUsd(stockTotals.grossProfitUsd)} · ROI +{stockTotals.grossMarginPercent.toFixed(1)}%
           </div>
         </div>
 
@@ -596,11 +783,11 @@ export const AdminFinancesManager: React.FC<AdminFinancesManagerProps> = ({
             <span className="text-[10px] uppercase font-bold tracking-wider">Total Gastos</span>
             <Receipt className="w-3.5 h-3.5 text-rose-400" />
           </div>
-          <div className="text-base font-serif font-bold text-white">
-            {formatUsd(totalExpensesUsd)}
+          <div className="text-base font-serif font-bold text-white truncate" title={formatArs(expensesTotals.totalArs)}>
+            {formatArs(expensesTotals.totalArs)}
           </div>
-          <div className="text-[10px] text-white/40 mt-0.5">
-            Directos: {formatUsd(directVehicleExpensesUsd)}
+          <div className="text-[10px] text-white/50 font-mono mt-0.5 truncate">
+            {formatUsd(expensesTotals.totalUsd)} · Directos: {formatArs(expensesTotals.directArs)}
           </div>
         </div>
 
@@ -610,11 +797,11 @@ export const AdminFinancesManager: React.FC<AdminFinancesManagerProps> = ({
             <span className="text-[10px] uppercase font-bold tracking-wider">Gastos Operativos</span>
             <Building2 className="w-3.5 h-3.5 text-amber-400" />
           </div>
-          <div className="text-base font-serif font-bold text-white">
-            {formatUsd(operatingExpensesUsd)}
+          <div className="text-base font-serif font-bold text-white truncate" title={formatArs(expensesTotals.operatingArs)}>
+            {formatArs(expensesTotals.operatingArs)}
           </div>
-          <div className="text-[10px] text-white/40 mt-0.5">
-            Alquiler, sueldos, servicios
+          <div className="text-[10px] text-white/50 font-mono mt-0.5 truncate">
+            {formatUsd(expensesTotals.operatingUsd)} · Agencia/Fijos
           </div>
         </div>
 
@@ -624,14 +811,14 @@ export const AdminFinancesManager: React.FC<AdminFinancesManagerProps> = ({
             <span className="text-[10px] uppercase font-bold tracking-wider">Resultado Neto Est.</span>
             <Sparkles className="w-3.5 h-3.5 text-[#D4AF37]" />
           </div>
-          <div className={`text-base font-serif font-bold ${estimatedNetBalanceUsd >= 0 ? 'text-[#D4AF37]' : 'text-rose-400'}`}>
-            {formatUsd(estimatedNetBalanceUsd)}
+          <div className={`text-base font-serif font-bold truncate ${expensesTotals.netBalanceArs >= 0 ? 'text-[#D4AF37]' : 'text-rose-400'}`} title={formatArs(expensesTotals.netBalanceArs)}>
+            {formatArs(expensesTotals.netBalanceArs)}
           </div>
-          <div className="text-[10px] text-white/40 mt-0.5">
-            {pendingExpensesCount > 0 ? (
-              <span className="text-amber-400 font-semibold">{pendingExpensesCount} pagos pendientes</span>
+          <div className="text-[10px] text-white/50 font-mono mt-0.5 truncate">
+            {formatUsd(expensesTotals.netBalanceUsd)} · {pendingExpensesCount > 0 ? (
+              <span className="text-amber-400">{pendingExpensesCount} pendientes</span>
             ) : (
-              <span>Pagos al día</span>
+              <span>Al día</span>
             )}
           </div>
         </div>
@@ -657,32 +844,50 @@ export const AdminFinancesManager: React.FC<AdminFinancesManagerProps> = ({
               <div className="space-y-2.5 text-xs">
                 <div className="flex items-center justify-between py-1.5 border-b border-white/5">
                   <span className="text-white/70">Ingreso Proyectado por Venta de Stock</span>
-                  <span className="font-mono text-white font-bold">+{formatUsd(totalStockSaleUsd)}</span>
+                  <div className="text-right font-mono">
+                    <span className="text-white font-bold block">+{formatArs(stockTotals.saleArs)}</span>
+                    <span className="text-white/40 text-[10px] block">+{formatUsd(stockTotals.saleUsd)}</span>
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-between py-1.5 border-b border-white/5 text-rose-300">
                   <span className="text-white/70">(-) Costo Base de Adquisición de Autos</span>
-                  <span className="font-mono font-bold">-{formatUsd(totalStockPurchaseBaseUsd)}</span>
+                  <div className="text-right font-mono">
+                    <span className="font-bold block">-{formatArs(stockTotals.purchaseBaseArs)}</span>
+                    <span className="text-rose-400/60 text-[10px] block">-{formatUsd(stockTotals.purchaseBaseUsd)}</span>
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-between py-1.5 border-b border-white/5 text-rose-300">
                   <span className="text-white/70">(-) Gastos Directos en Autos (Taller/Chapa/Flete)</span>
-                  <span className="font-mono font-bold">-{formatUsd(totalStockDirectExpensesUsd)}</span>
+                  <div className="text-right font-mono">
+                    <span className="font-bold block">-{formatArs(stockTotals.directExpensesArs)}</span>
+                    <span className="text-rose-400/60 text-[10px] block">-{formatUsd(stockTotals.directExpensesUsd)}</span>
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-between py-2 bg-white/[0.02] px-2 border-y border-white/10 font-serif">
                   <span className="text-white font-bold">(=) Margen Bruto de Intermediación</span>
-                  <span className="font-mono font-bold text-emerald-400">+{formatUsd(potentialGrossProfitUsd)}</span>
+                  <div className="text-right font-mono">
+                    <span className="font-bold text-emerald-400 block">+{formatArs(stockTotals.grossProfitArs)}</span>
+                    <span className="text-emerald-400/60 text-[10px] block">+{formatUsd(stockTotals.grossProfitUsd)}</span>
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-between py-1.5 border-b border-white/5 text-amber-300">
                   <span className="text-white/70">(-) Gastos Operativos / Fijos de Agencia</span>
-                  <span className="font-mono font-bold">-{formatUsd(operatingExpensesUsd)}</span>
+                  <div className="text-right font-mono">
+                    <span className="font-bold block">-{formatArs(expensesTotals.operatingArs)}</span>
+                    <span className="text-amber-400/60 text-[10px] block">-{formatUsd(expensesTotals.operatingUsd)}</span>
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-between py-2.5 bg-[#D4AF37]/10 px-3 border border-[#D4AF37]/30 text-sm font-serif">
                   <span className="text-white font-bold">(=) Rendimiento Neto Proyectado</span>
-                  <span className="font-mono font-bold text-[#D4AF37]">{formatUsd(estimatedNetBalanceUsd)}</span>
+                  <div className="text-right font-mono">
+                    <span className="font-bold text-[#D4AF37] block">{formatArs(expensesTotals.netBalanceArs)}</span>
+                    <span className="text-[#D4AF37]/70 text-[10px] block">{formatUsd(expensesTotals.netBalanceUsd)}</span>
+                  </div>
                 </div>
               </div>
 
@@ -722,12 +927,13 @@ export const AdminFinancesManager: React.FC<AdminFinancesManagerProps> = ({
                   {categoryBreakdown.map((item) => (
                     <div key={item.category} className="space-y-1">
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-white truncate max-w-[200px]" title={item.category}>
+                        <span className="text-white truncate max-w-[180px]" title={item.category}>
                           {item.category}
                         </span>
-                        <div className="flex items-center gap-2 font-mono">
+                        <div className="flex items-center gap-1.5 font-mono text-right">
                           <span className="text-white/40 text-[10px]">({item.count})</span>
-                          <span className="text-white font-bold">{formatUsd(item.totalUsd)}</span>
+                          <span className="text-white font-bold">{formatArs(item.totalArs)}</span>
+                          <span className="text-white/40 text-[10px]">({formatUsd(item.totalUsd)})</span>
                         </div>
                       </div>
                       <div className="w-full bg-white/5 h-1.5 overflow-hidden">
@@ -745,11 +951,11 @@ export const AdminFinancesManager: React.FC<AdminFinancesManagerProps> = ({
                 <div className="flex items-center gap-3 text-[10px]">
                   <span className="flex items-center gap-1">
                     <span className="w-2 h-2 rounded-full bg-[#D4AF37]" />
-                    <span className="text-white/60">Directos Vehículo ({formatUsd(directVehicleExpensesUsd)})</span>
+                    <span className="text-white/60">Directos: {formatArs(expensesTotals.directArs)}</span>
                   </span>
                   <span className="flex items-center gap-1">
                     <span className="w-2 h-2 rounded-full bg-rose-500" />
-                    <span className="text-white/60">Operativos ({formatUsd(operatingExpensesUsd)})</span>
+                    <span className="text-white/60">Operativos: {formatArs(expensesTotals.operatingArs)}</span>
                   </span>
                 </div>
               </div>
@@ -772,11 +978,11 @@ export const AdminFinancesManager: React.FC<AdminFinancesManagerProps> = ({
                     <CheckCircle2 className="w-3.5 h-3.5" />
                     <span>Pagado / Ejecutado</span>
                   </div>
-                  <div className="text-base font-serif font-bold text-white">
-                    {formatUsd(paidExpensesUsd)}
+                  <div className="text-base font-serif font-bold text-white truncate" title={formatArs(expensesTotals.paidArs)}>
+                    {formatArs(expensesTotals.paidArs)}
                   </div>
-                  <div className="text-[10px] text-white/40 mt-0.5">
-                    {expenses.filter((e) => e.status === 'Pagado').length} comprobantes cancelados
+                  <div className="text-[10px] text-white/50 font-mono mt-0.5 truncate">
+                    {formatUsd(expensesTotals.paidUsd)} · {expenses.filter((e) => e.status === 'Pagado').length} comp.
                   </div>
                 </div>
 
@@ -785,11 +991,11 @@ export const AdminFinancesManager: React.FC<AdminFinancesManagerProps> = ({
                     <Clock className="w-3.5 h-3.5" />
                     <span>Pendiente de Pago</span>
                   </div>
-                  <div className="text-base font-serif font-bold text-amber-400">
-                    {formatUsd(pendingExpensesUsd)}
+                  <div className="text-base font-serif font-bold text-amber-400 truncate" title={formatArs(expensesTotals.pendingArs)}>
+                    {formatArs(expensesTotals.pendingArs)}
                   </div>
-                  <div className="text-[10px] text-white/40 mt-0.5">
-                    {pendingExpensesCount} facturas a liquidar
+                  <div className="text-[10px] text-amber-400/80 font-mono mt-0.5 truncate">
+                    {formatUsd(expensesTotals.pendingUsd)} · {pendingExpensesCount} fac.
                   </div>
                 </div>
               </div>
@@ -801,9 +1007,10 @@ export const AdminFinancesManager: React.FC<AdminFinancesManagerProps> = ({
                   {paymentMethodBreakdown.map((pm) => (
                     <div key={pm.method} className="flex items-center justify-between text-xs py-1 border-b border-white/5">
                       <span className="text-white/80">{pm.method}</span>
-                      <div className="flex items-center gap-2 font-mono">
+                      <div className="flex items-center gap-1.5 font-mono">
                         <span className="text-white/40 text-[10px]">({pm.count})</span>
-                        <span className="text-white font-bold">{formatUsd(pm.totalUsd)}</span>
+                        <span className="text-white font-bold">{formatArs(pm.totalArs)}</span>
+                        <span className="text-white/40 text-[10px]">({formatUsd(pm.totalUsd)})</span>
                         <span className="text-[#D4AF37] text-[10px]">({pm.percentage.toFixed(0)}%)</span>
                       </div>
                     </div>
@@ -940,7 +1147,7 @@ export const AdminFinancesManager: React.FC<AdminFinancesManagerProps> = ({
                     <th className="p-3.5">Tipo & Categoría</th>
                     <th className="p-3.5">Auto Asignado</th>
                     <th className="p-3.5">Medio de Pago</th>
-                    <th className="p-3.5">Monto (USD / ARS)</th>
+                    <th className="p-3.5">Monto (ARS / USD)</th>
                     <th className="p-3.5">Estado</th>
                     <th className="p-3.5 text-right">Acciones</th>
                   </tr>
@@ -1004,16 +1211,21 @@ export const AdminFinancesManager: React.FC<AdminFinancesManagerProps> = ({
                         <span className="text-white/80">{exp.paymentMethod}</span>
                       </td>
 
-                      {/* Monto */}
+                      {/* Monto (ARS Primary / USD Secondary) */}
                       <td className="p-3.5 whitespace-nowrap font-mono">
-                        <span className="text-white font-bold block text-sm">
-                          {formatUsd(exp.amountUsd)}
-                        </span>
-                        {exp.amountArs && exp.amountArs > 0 && (
-                          <span className="text-[10px] text-white/40 block">
-                            {formatArs(exp.amountArs)}
-                          </span>
-                        )}
+                        {(() => {
+                          const { ars, usd } = getExpenseAmounts(exp);
+                          return (
+                            <div>
+                              <span className="text-white font-bold block text-sm">
+                                {formatArs(ars)}
+                              </span>
+                              <span className="text-[10px] text-white/40 block">
+                                {formatUsd(usd)}
+                              </span>
+                            </div>
+                          );
+                        })()}
                       </td>
 
                       {/* Estado */}
@@ -1050,7 +1262,7 @@ export const AdminFinancesManager: React.FC<AdminFinancesManagerProps> = ({
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleDeleteExpense(exp.id, exp.concept)}
+                            onClick={() => handleDeleteExpense(exp)}
                             className="p-1.5 text-white/40 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
                             title="Eliminar gasto"
                           >
@@ -1100,9 +1312,19 @@ export const AdminFinancesManager: React.FC<AdminFinancesManagerProps> = ({
                 <span className="text-white/50">
                   Mostrando <strong className="text-white">{filteredExpenses.length}</strong> de <strong className="text-white">{expenses.length}</strong> gastos
                 </span>
-                <div className="flex items-center gap-4 font-mono">
+                <div className="flex items-center gap-2 font-mono">
                   <span className="text-white/70">
-                    Total Filtrado: <strong className="text-[#D4AF37] text-sm">{formatUsd(filteredExpenses.reduce((acc, e) => acc + (e.amountUsd || 0), 0))}</strong>
+                    Total Filtrado:{' '}
+                    <strong className="text-[#D4AF37] text-sm">
+                      {formatArs(
+                        filteredExpenses.reduce((acc, e) => acc + getExpenseAmounts(e).ars, 0)
+                      )}
+                    </strong>
+                    <span className="text-white/40 text-xs ml-1.5">
+                      ({formatUsd(
+                        filteredExpenses.reduce((acc, e) => acc + getExpenseAmounts(e).usd, 0)
+                      )})
+                    </span>
                   </span>
                 </div>
               </div>
@@ -1191,14 +1413,7 @@ export const AdminFinancesManager: React.FC<AdminFinancesManagerProps> = ({
                 </thead>
                 <tbody className="divide-y divide-white/5">
                   {filteredStockCars.map((car) => {
-                    const purchaseBase = car.purchasePriceUsd || 0;
-                    const purchaseExpenses = car.purchaseExpensesUsd || 0;
-                    const totalCost = purchaseBase + purchaseExpenses;
-                    const salePrice = car.priceUsd || 0;
-                    const profitUsd = salePrice - totalCost;
-                    const roiPercent = totalCost > 0 ? (profitUsd / totalCost) * 100 : 0;
-
-                    // Direct expenses recorded for this car
+                    const f = getCarFinancials(car);
                     const carExpenseCount = expenses.filter((e) => e.carId === car.id).length;
 
                     return (
@@ -1244,17 +1459,23 @@ export const AdminFinancesManager: React.FC<AdminFinancesManagerProps> = ({
                           </span>
                         </td>
 
-                        {/* Precio Compra */}
-                        <td className="p-3.5 whitespace-nowrap font-mono text-white/90">
-                          {purchaseBase > 0 ? formatUsd(purchaseBase) : (
+                        {/* Precio Compra (ARS Primary / USD Secondary) */}
+                        <td className="p-3.5 whitespace-nowrap font-mono">
+                          {f.purchaseBaseArs > 0 ? (
+                            <div>
+                              <span className="text-white/90 font-bold block">{formatArs(f.purchaseBaseArs)}</span>
+                              <span className="text-[10px] text-white/40 block">{formatUsd(f.purchaseBaseUsd)}</span>
+                            </div>
+                          ) : (
                             <span className="text-white/30 text-[11px] italic">Sin registrar</span>
                           )}
                         </td>
 
-                        {/* Gastos Asignados */}
-                        <td className="p-3.5 whitespace-nowrap">
-                          <div className="font-mono text-white/90">
-                            {purchaseExpenses > 0 ? formatUsd(purchaseExpenses) : '$0'}
+                        {/* Gastos Asignados (ARS Primary / USD Secondary) */}
+                        <td className="p-3.5 whitespace-nowrap font-mono">
+                          <div>
+                            <span className="text-white/90 font-bold block">{formatArs(f.directExpensesArs)}</span>
+                            <span className="text-[10px] text-white/40 block">{formatUsd(f.directExpensesUsd)}</span>
                           </div>
                           <button
                             type="button"
@@ -1265,27 +1486,39 @@ export const AdminFinancesManager: React.FC<AdminFinancesManagerProps> = ({
                           </button>
                         </td>
 
-                        {/* Costo Total */}
-                        <td className="p-3.5 whitespace-nowrap font-mono font-bold text-white">
-                          {totalCost > 0 ? formatUsd(totalCost) : (
+                        {/* Costo Total (ARS Primary / USD Secondary) */}
+                        <td className="p-3.5 whitespace-nowrap font-mono">
+                          {f.totalCostArs > 0 ? (
+                            <div>
+                              <span className="text-white font-bold block">{formatArs(f.totalCostArs)}</span>
+                              <span className="text-[10px] text-white/50 block">{formatUsd(f.totalCostUsd)}</span>
+                            </div>
+                          ) : (
                             <span className="text-white/30 text-[11px] font-normal italic">S/D</span>
                           )}
                         </td>
 
-                        {/* Precio Venta */}
-                        <td className="p-3.5 whitespace-nowrap font-mono font-bold text-blue-400">
-                          {salePrice > 0 ? formatUsd(salePrice) : 'A Consultar'}
+                        {/* Precio Venta (ARS Primary / USD Secondary) */}
+                        <td className="p-3.5 whitespace-nowrap font-mono font-bold">
+                          {f.salePriceArs > 0 ? (
+                            <div>
+                              <span className="text-blue-400 block">{formatArs(f.salePriceArs)}</span>
+                              <span className="text-[10px] text-blue-400/60 block">{formatUsd(f.salePriceUsd)}</span>
+                            </div>
+                          ) : (
+                            <span className="text-white/40 text-xs">A Consultar</span>
+                          )}
                         </td>
 
-                        {/* Margen Est. */}
+                        {/* Margen Est. (ARS Primary / USD Secondary) */}
                         <td className="p-3.5 whitespace-nowrap font-mono">
-                          {totalCost > 0 && salePrice > 0 ? (
+                          {f.totalCostArs > 0 && f.salePriceArs > 0 ? (
                             <div>
-                              <span className={`font-bold block ${profitUsd >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                {profitUsd >= 0 ? '+' : ''}{formatUsd(profitUsd)}
+                              <span className={`font-bold block ${f.profitArs >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                {f.profitArs >= 0 ? '+' : ''}{formatArs(f.profitArs)}
                               </span>
                               <span className="text-[10px] text-white/40 block">
-                                {roiPercent.toFixed(1)}% ROI
+                                {f.profitUsd >= 0 ? '+' : ''}{formatUsd(f.profitUsd)} · {f.roiPercent.toFixed(1)}% ROI
                               </span>
                             </div>
                           ) : (
@@ -1334,6 +1567,38 @@ export const AdminFinancesManager: React.FC<AdminFinancesManagerProps> = ({
                 </tbody>
               </table>
             </div>
+
+            {/* Table Footer / Summary */}
+            {filteredStockCars.length > 0 && (
+              <div className="bg-[#050505] p-3 border-t border-white/10 flex flex-wrap items-center justify-between gap-3 text-xs">
+                <span className="text-white/50">
+                  Mostrando <strong className="text-white">{filteredStockCars.length}</strong> de <strong className="text-white">{cars.length}</strong> vehículos
+                </span>
+                <div className="flex flex-wrap items-center gap-4 font-mono">
+                  {(() => {
+                    const sumInversionArs = filteredStockCars.reduce((acc, c) => acc + getCarFinancials(c).totalCostArs, 0);
+                    const sumInversionUsd = filteredStockCars.reduce((acc, c) => acc + getCarFinancials(c).totalCostUsd, 0);
+                    const sumVentaArs = filteredStockCars.reduce((acc, c) => acc + getCarFinancials(c).salePriceArs, 0);
+                    const sumVentaUsd = filteredStockCars.reduce((acc, c) => acc + getCarFinancials(c).salePriceUsd, 0);
+                    const sumMargenArs = sumVentaArs - sumInversionArs;
+                    const sumMargenUsd = sumVentaUsd - sumInversionUsd;
+                    return (
+                      <>
+                        <span className="text-white/70">
+                          Inversión: <strong className="text-white font-bold">{formatArs(sumInversionArs)}</strong> <span className="text-white/40 text-[11px]">({formatUsd(sumInversionUsd)})</span>
+                        </span>
+                        <span className="text-white/70">
+                          Venta: <strong className="text-blue-400 font-bold">{formatArs(sumVentaArs)}</strong> <span className="text-white/40 text-[11px]">({formatUsd(sumVentaUsd)})</span>
+                        </span>
+                        <span className="text-white/70">
+                          Margen: <strong className="text-emerald-400 font-bold">+{formatArs(sumMargenArs)}</strong> <span className="text-emerald-400/60 text-[11px]">(+{formatUsd(sumMargenUsd)})</span>
+                        </span>
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1470,40 +1735,45 @@ export const AdminFinancesManager: React.FC<AdminFinancesManagerProps> = ({
                 </div>
               </div>
 
-              {/* Montos y Tipo de Cambio */}
+              {/* Montos y Tipo de Cambio - ARS Predeterminado / USD Secundario */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-[#050505] p-3.5 border border-white/5">
                 <div>
-                  <label className="block text-[#D4AF37] font-bold uppercase tracking-wider text-[10px] mb-1.5">
-                    Monto en Dólares (USD) *
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-[#D4AF37] font-bold uppercase tracking-wider text-[10px]">
+                      Monto en Pesos (ARS) *
+                    </label>
+                    <span className="text-[9px] font-bold uppercase tracking-widest text-[#D4AF37]/90 bg-[#D4AF37]/10 px-1.5 py-0.5 border border-[#D4AF37]/30">
+                      Predeterminado
+                    </span>
+                  </div>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40 font-mono text-xs">U$S</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40 font-mono text-xs font-bold">$</span>
                     <input
                       type="number"
                       required
                       min={0}
-                      step="any"
                       placeholder="0"
-                      value={formAmountUsd}
-                      onChange={(e) => handleUsdChange(e.target.value)}
-                      className="w-full bg-[#0a0a0a] border border-white/10 pl-10 pr-3 py-2 text-xs text-white font-mono font-bold focus:outline-none focus:border-[#D4AF37]"
+                      value={formAmountArs}
+                      onChange={(e) => handleArsChange(e.target.value)}
+                      className="w-full bg-[#0a0a0a] border border-[#D4AF37]/40 pl-8 pr-3 py-2 text-xs text-white font-mono font-bold focus:outline-none focus:border-[#D4AF37]"
                     />
                   </div>
                 </div>
 
                 <div>
                   <label className="block text-white/70 font-bold uppercase tracking-wider text-[10px] mb-1.5">
-                    Monto en Pesos (ARS)
+                    Equivalente en Dólares (USD)
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40 font-mono text-xs">$</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40 font-mono text-xs">U$S</span>
                     <input
                       type="number"
                       min={0}
+                      step="any"
                       placeholder="0"
-                      value={formAmountArs}
-                      onChange={(e) => handleArsChange(e.target.value)}
-                      className="w-full bg-[#0a0a0a] border border-white/10 pl-8 pr-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-[#D4AF37]"
+                      value={formAmountUsd}
+                      onChange={(e) => handleUsdChange(e.target.value)}
+                      className="w-full bg-[#0a0a0a] border border-white/10 pl-10 pr-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-[#D4AF37]"
                     />
                   </div>
                 </div>
@@ -1633,6 +1903,97 @@ export const AdminFinancesManager: React.FC<AdminFinancesManagerProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL: CONFIRMAR ELIMINACIÓN DE GASTO                     */}
+      {/* ========================================================= */}
+      {expenseToDelete && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#0a0a0a] border border-rose-500/30 p-6 sm:p-7 w-full max-w-md space-y-5 shadow-2xl relative text-left">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400">
+                  <Trash2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-serif text-white font-bold">
+                    Eliminar Gasto
+                  </h3>
+                  <p className="text-[11px] text-white/50">
+                    Confirmación de baja en el libro contable
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setExpenseToDelete(null)}
+                className="text-white/40 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="bg-[#050505] border border-white/10 p-4 space-y-2 text-xs">
+              <div className="flex items-center justify-between text-white/60">
+                <span>Concepto:</span>
+                <strong className="text-white font-serif">{expenseToDelete.concept}</strong>
+              </div>
+              <div className="flex items-center justify-between text-white/60">
+                <span>Categoría:</span>
+                <span className="text-white/80">{expenseToDelete.category}</span>
+              </div>
+              <div className="flex items-center justify-between text-white/60">
+                <span>Fecha:</span>
+                <span className="text-white/80 font-mono">{expenseToDelete.date}</span>
+              </div>
+              <div className="flex items-center justify-between text-white/60 pt-2 border-t border-white/10">
+                <span>Importe:</span>
+                <div className="text-right">
+                  <strong className="text-rose-400 font-mono text-sm block">
+                    {formatArs(getExpenseAmounts(expenseToDelete).ars)}
+                  </strong>
+                  <span className="text-[10px] text-white/40 font-mono">
+                    ({formatUsd(getExpenseAmounts(expenseToDelete).usd)})
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <p className="text-xs text-white/60 leading-relaxed">
+              ¿Confirmás que deseas eliminar este gasto de forma definitiva? Se actualizarán los balances contables y métricas financieras de inmediato.
+            </p>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                disabled={isDeletingExpense}
+                onClick={() => setExpenseToDelete(null)}
+                className="px-4 py-2 border border-white/10 text-white/70 hover:text-white uppercase font-bold text-xs tracking-wider transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingExpense}
+                onClick={handleConfirmDeleteExpense}
+                className="px-5 py-2 bg-rose-600 hover:bg-rose-500 text-white font-bold uppercase text-xs tracking-wider transition-colors shadow-lg flex items-center gap-2 disabled:opacity-50"
+              >
+                {isDeletingExpense ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                    <span>Eliminando...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Eliminar Gasto</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
