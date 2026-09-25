@@ -5,6 +5,7 @@ import {
   signInWithPopup, 
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  sendEmailVerification,
   sendPasswordResetEmail,
   updateProfile,
   signOut, 
@@ -17,7 +18,9 @@ import {
   getDocFromServer,
   collection,
   getDocs,
+  getDocsFromServer,
   setDoc,
+  writeBatch,
   updateDoc,
   deleteDoc,
   onSnapshot,
@@ -141,11 +144,20 @@ export async function signUpWithEmail(email: string, password: string, displayNa
         displayName: displayName.trim(),
       });
     }
+    try {
+      await sendEmailVerification(credential.user);
+    } catch (error) {
+      console.warn('No se pudo enviar el correo de verificación:', error);
+    }
     return credential.user;
   } catch (error: any) {
     console.error('Email Sign-Up Error:', error);
     throw error;
   }
+}
+
+export async function requestEmailVerification(user: User): Promise<void> {
+  await sendEmailVerification(user);
 }
 
 export async function resetPassword(email: string): Promise<void> {
@@ -221,22 +233,10 @@ export const AUTHORIZED_ADMIN_EMAILS: readonly string[] = DEFAULT_ADMIN_EMAILS;
 export const ADMIN_EMAILS = AUTHORIZED_ADMIN_EMAILS;
 export const ADMIN_EMAIL = 'germanmountrichas@gmail.com';
 
-const ADMINS_CACHE_KEY = 'blackswan_dynamic_admin_emails_v1';
-let dynamicAdminEmails: string[] = (() => {
-  try {
-    const raw = localStorage.getItem(ADMINS_CACHE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-})();
+let dynamicAdminEmails: string[] = [];
 
-export function updateDynamicAdminEmails(emails: string[]) {
-  const normalized = emails.map((e) => e.trim().toLowerCase()).filter(Boolean);
-  dynamicAdminEmails = Array.from(new Set([...dynamicAdminEmails, ...normalized]));
-  try {
-    localStorage.setItem(ADMINS_CACHE_KEY, JSON.stringify(dynamicAdminEmails));
-  } catch {}
+export function clearDynamicAdminEmails() {
+  dynamicAdminEmails = [];
 }
 
 /**
@@ -245,7 +245,7 @@ export function updateDynamicAdminEmails(emails: string[]) {
  * comparten exactamente los mismos privilegios para modificar inventario, cotizaciones, CRM, etc.
  */
 export function isUserAdmin(user: User | null): boolean {
-  if (!user || !user.email) {
+  if (!user || !user.email || !user.emailVerified) {
     return false;
   }
 
@@ -260,27 +260,6 @@ export function isUserAdmin(user: User | null): boolean {
   if (dynamicAdminEmails.some((email) => email === userEmail)) {
     return true;
   }
-
-  // 3. Verificar listado de administradores en localStorage
-  try {
-    const localAdminsRaw = localStorage.getItem('blackswan_admins_v1');
-    if (localAdminsRaw) {
-      const admins = JSON.parse(localAdminsRaw);
-      if (Array.isArray(admins)) {
-        if (
-          admins.some(
-            (a: any) =>
-              a &&
-              a.email &&
-              a.email.trim().toLowerCase() === userEmail &&
-              a.active !== false
-          )
-        ) {
-          return true;
-        }
-      }
-    }
-  } catch {}
 
   return false;
 }
@@ -882,6 +861,30 @@ class FirebaseSyncService {
   }
 
   // --- ADMINISTRATORS MANAGEMENT (Equal Privileges) ---
+  public subscribeAdminAccess(user: User, onChange: () => void) {
+    const email = user.email?.trim().toLowerCase();
+    if (!email) return () => undefined;
+    const docId = `admin_${email.replace(/[^a-z0-9]/g, '_')}`;
+    return onSnapshot(
+      doc(db, 'adminAccess', docId),
+      { includeMetadataChanges: true },
+      (snapshot) => {
+        dynamicAdminEmails = !snapshot.metadata.fromCache
+          && snapshot.exists()
+          && snapshot.data().email === email
+          && snapshot.data().active === true
+          ? [email]
+          : [];
+        onChange();
+      },
+      (error) => {
+        clearDynamicAdminEmails();
+        console.warn('Admin access verification failed:', error.message);
+        onChange();
+      }
+    );
+  }
+
   public subscribeAdmins(onUpdate: (admins: AdminUser[]) => void) {
     const path = 'admins';
     return onSnapshot(
@@ -891,7 +894,6 @@ class FirebaseSyncService {
         snapshot.forEach((doc) => {
           adminList.push(doc.data() as AdminUser);
         });
-        updateDynamicAdminEmails(adminList.map((a) => a.email));
         onUpdate(adminList);
       },
       (error) => {
@@ -903,12 +905,11 @@ class FirebaseSyncService {
   public async getAdmins(): Promise<AdminUser[]> {
     const path = 'admins';
     try {
-      const snap = await getDocs(collection(db, path));
+      const snap = await getDocsFromServer(collection(db, path));
       const list: AdminUser[] = [];
       snap.forEach((doc) => {
         list.push(doc.data() as AdminUser);
       });
-      updateDynamicAdminEmails(list.map((a) => a.email));
       return list;
     } catch (err) {
       console.warn('Error fetching admins from Firestore:', err);
@@ -917,7 +918,7 @@ class FirebaseSyncService {
   }
 
   public async saveAdmin(admin: AdminUser): Promise<void> {
-    const docId = admin.id || admin.email.toLowerCase().replace(/[^a-z0-9]/g, '_');
+    const docId = admin.id || `admin_${admin.email.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
     const path = `admins/${docId}`;
     try {
       const payload: AdminUser = {
@@ -927,17 +928,27 @@ class FirebaseSyncService {
         name: admin.name.trim() || admin.email.split('@')[0],
         active: admin.active !== false
       };
-      await setDoc(doc(db, 'admins', docId), cleanDataForFirestore(payload));
-      updateDynamicAdminEmails([payload.email]);
+      const accessId = `admin_${payload.email.replace(/[^a-z0-9]/g, '_')}`;
+      const batch = writeBatch(db);
+      batch.set(doc(db, 'admins', docId), cleanDataForFirestore(payload));
+      batch.set(doc(db, 'adminAccess', accessId), {
+        email: payload.email,
+        active: payload.active
+      });
+      await batch.commit();
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, path);
     }
   }
 
-  public async deleteAdmin(adminId: string): Promise<void> {
+  public async deleteAdmin(adminId: string, email: string): Promise<void> {
     const path = `admins/${adminId}`;
     try {
-      await deleteDoc(doc(db, 'admins', adminId));
+      const accessId = `admin_${email.trim().toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+      const batch = writeBatch(db);
+      batch.delete(doc(db, 'adminAccess', accessId));
+      batch.delete(doc(db, 'admins', adminId));
+      await batch.commit();
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, path);
     }

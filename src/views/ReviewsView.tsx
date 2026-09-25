@@ -173,8 +173,8 @@ export const ReviewsView: React.FC<ReviewsViewProps> = ({ reviews, onReviewAdded
             {submitted ? (
               <div className="bg-emerald-950/40 border border-emerald-500/30 p-6 text-center space-y-2">
                 <Check className="w-8 h-8 text-emerald-400 mx-auto" />
-                <h4 className="text-sm font-serif text-white">Publicación Exitosa</h4>
-                <p className="text-xs text-white/60 font-light">Su testimonio ha sido compartido en nuestra plataforma.</p>
+                <h4 className="text-sm font-serif text-white">Reseña recibida</h4>
+                <p className="text-xs text-white/60 font-light">Tu testimonio quedará visible después de su aprobación.</p>
               </div>
             ) : (
               <form onSubmit={handleAddReviewSubmit} className="space-y-4 text-xs">

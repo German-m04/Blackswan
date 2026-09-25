@@ -1,92 +1,139 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Default deny catch-all
+    // Every collection not listed below remains private.
     match /{document=**} {
       allow read, write: if false;
     }
 
-    // Helper functions
     function isValidId(id) {
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
-    function incoming() {
-      return request.resource.data;
+    function isVerifiedUser() {
+      return request.auth != null
+        && request.auth.token.email is string
+        && request.auth.token.email_verified == true;
     }
 
-    function existing() {
-      return resource.data;
-    }
-
-    function isSignedIn() {
-      return request.auth != null;
+    // AdminTeamManager stores invited administrators under this deterministic ID.
+    function adminIdForEmail(email) {
+      return 'admin_' + email.lower().replace('[^a-z0-9]', '_');
     }
 
     function isAdmin() {
-      return isSignedIn() && (
-        request.auth.token.email.matches('(?i)^(blackswan202614@gmail\\.com|germanmountrichas@gmail\\.com)$') ||
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      return isVerifiedUser() && (
+        request.auth.token.email.lower() in [
+          'germanmountrichas@gmail.com',
+          'blackswan202614@gmail.com'
+        ] ||
+        (
+          exists(/databases/$(database)/documents/adminAccess/$(adminIdForEmail(request.auth.token.email)))
+          && get(/databases/$(database)/documents/adminAccess/$(adminIdForEmail(request.auth.token.email))).data.email
+            == request.auth.token.email.lower()
+          && get(/databases/$(database)/documents/adminAccess/$(adminIdForEmail(request.auth.token.email))).data.active
+            == true
+        )
       );
     }
 
-    // Connection test document
+    function validPublicInquiry(inquiryId) {
+      let data = request.resource.data;
+      return isValidId(inquiryId)
+        && data.keys().hasOnly([
+          'id', 'name', 'phone', 'email', 'type', 'carId', 'carTitle',
+          'message', 'status', 'createdAt', 'tradeInCar'
+        ])
+        && data.keys().hasAll([
+          'id', 'name', 'phone', 'email', 'type', 'message', 'status', 'createdAt'
+        ])
+        && data.id == inquiryId
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 160
+        && data.phone is string && data.phone.size() > 0 && data.phone.size() <= 80
+        && data.email is string && data.email.size() <= 254
+        && data.message is string && data.message.size() <= 4000
+        && data.createdAt is string && data.createdAt.size() <= 50
+        && data.type in ['Consulta', 'TestDrive', 'Financiacion', 'Tasacion']
+        && data.status == 'Pendiente';
+    }
+
+    function validPublicReview(reviewId) {
+      let data = request.resource.data;
+      return isValidId(reviewId)
+        && data.keys().hasOnly([
+          'id', 'author', 'rating', 'date', 'comment',
+          'carPurchased', 'approved', 'userAvatar'
+        ])
+        && data.keys().hasAll([
+          'id', 'author', 'rating', 'date', 'comment', 'approved'
+        ])
+        && data.id == reviewId
+        && data.author is string && data.author.size() > 0 && data.author.size() <= 160
+        && data.rating is int && data.rating >= 1 && data.rating <= 5
+        && data.date is string && data.date.size() <= 100
+        && data.comment is string && data.comment.size() > 0 && data.comment.size() <= 2000
+        && data.approved == false;
+    }
+
     match /test/connection {
       allow get: if true;
     }
 
-    // Admins registry
     match /admins/{adminId} {
-      allow get, list: if true;
-      allow create, update, delete: if true;
+      allow get, list, create, update, delete: if isAdmin();
     }
 
-    // Brands & Models Catalog
+    // This collection is new: legacy /admins documents were publicly writable
+    // and cannot be trusted as authorization records.
+    match /adminAccess/{adminId} {
+      allow get: if isAdmin() ||
+        (isVerifiedUser() && adminId == adminIdForEmail(request.auth.token.email));
+      allow list: if isAdmin();
+      allow create, update: if isAdmin()
+        && request.resource.data.keys().hasOnly(['email', 'active'])
+        && request.resource.data.keys().hasAll(['email', 'active'])
+        && request.resource.data.email is string
+        && adminId == adminIdForEmail(request.resource.data.email)
+        && request.resource.data.active is bool;
+      allow delete: if isAdmin();
+    }
+
     match /brands/{brandId} {
       allow get, list: if true;
-      allow create, update, delete: if true;
+      allow create, update, delete: if isAdmin();
     }
 
-    // System Config & Production Metadata
     match /system/{docId} {
-      allow get, list, write: if true;
+      allow get: if docId == 'agency' || isAdmin();
+      allow list, create, update, delete: if isAdmin();
     }
 
-    // Vehicle Inventory Collection - Full access for all administrators
     match /cars/{carId} {
       allow get, list: if true;
-      allow create, update, delete: if true;
+      allow create, update, delete: if isAdmin();
     }
 
-    // Inquiries Collection (Customer Leads)
     match /inquiries/{inquiryId} {
-      allow get, list: if true;
-      allow create, update, delete: if true;
+      allow create: if isAdmin() || validPublicInquiry(inquiryId);
+      allow get, list, update, delete: if isAdmin();
     }
 
-    // Reviews Collection
     match /reviews/{reviewId} {
       allow get, list: if true;
-      allow create, update, delete: if true;
+      allow create: if isAdmin() || validPublicReview(reviewId);
+      allow update, delete: if isAdmin();
     }
 
-    // Customers CRM Collection
     match /customers/{customerId} {
-      allow get, list: if true;
-      allow create, update, delete: if true;
+      allow get, list, create, update, delete: if isAdmin();
     }
 
-    // Quotations Collection
     match /quotations/{quotationId} {
-      allow get, list: if true;
-      allow create, update, delete: if true;
+      allow get, list, create, update, delete: if isAdmin();
     }
 
-    // Expenses & Finance Collection (Sector Finanzas & Gastos)
     match /expenses/{expenseId} {
-      allow get, list: if true;
-      allow create, update, delete: if true;
+      allow get, list, create, update, delete: if isAdmin();
     }
   }
 }

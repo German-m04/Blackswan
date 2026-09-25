@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
 import { Car, Review, Inquiry, AgencySettings } from './types';
 import { storage } from './utils/storage';
-import { auth, signInWithGoogle, logOut, firebaseSync, isUserAdmin } from './firebase';
+import { auth, signInWithGoogle, logOut, firebaseSync, isUserAdmin, clearDynamicAdminEmails } from './firebase';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { HomeView } from './views/HomeView';
@@ -26,6 +26,8 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [authModalMode, setAuthModalMode] = useState<'login' | 'register' | 'forgot'>('login');
+  const [, setAdminAccessVersion] = useState(0);
+  const hasAdminAccess = isUserAdmin(currentUser);
 
   // Sync state from storage
   const loadData = () => {
@@ -45,6 +47,7 @@ export default function App() {
 
     // 2. Firebase Auth listener
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      clearDynamicAdminEmails();
       setCurrentUser(user);
     });
 
@@ -61,42 +64,6 @@ export default function App() {
       if (Array.isArray(firestoreReviews)) {
         setReviews(firestoreReviews);
         storage.setReviewsFromFirebase(firestoreReviews);
-      }
-    });
-
-    // 5. Real-time Firestore sync for inquiries
-    const unsubscribeInquiries = firebaseSync.subscribeInquiries((firestoreInquiries) => {
-      if (Array.isArray(firestoreInquiries)) {
-        setInquiries(firestoreInquiries);
-        storage.setInquiriesFromFirebase(firestoreInquiries);
-      }
-    });
-
-    // 6. Real-time Firestore sync for customers
-    const unsubscribeCustomers = firebaseSync.subscribeCustomers((firestoreCustomers) => {
-      if (Array.isArray(firestoreCustomers)) {
-        storage.setCustomersFromFirebase(firestoreCustomers);
-      }
-    });
-
-    // 7. Real-time Firestore sync for quotations
-    const unsubscribeQuotations = firebaseSync.subscribeQuotations((firestoreQuotations) => {
-      if (Array.isArray(firestoreQuotations)) {
-        storage.setQuotationsFromFirebase(firestoreQuotations);
-      }
-    });
-
-    // 8. Real-time Firestore sync for admins (equal privileges)
-    const unsubscribeAdmins = firebaseSync.subscribeAdmins((firestoreAdmins) => {
-      if (Array.isArray(firestoreAdmins)) {
-        storage.setAdminsFromFirebase(firestoreAdmins);
-      }
-    });
-
-    // 9. Real-time Firestore sync for expenses (Finance sector)
-    const unsubscribeExpenses = firebaseSync.subscribeExpenses((firestoreExpenses) => {
-      if (Array.isArray(firestoreExpenses)) {
-        storage.setExpensesFromFirebase(firestoreExpenses);
       }
     });
 
@@ -138,15 +105,52 @@ export default function App() {
       unsubscribeAuth();
       unsubscribeCars();
       unsubscribeReviews();
-      unsubscribeInquiries();
-      unsubscribeCustomers();
-      unsubscribeQuotations();
-      unsubscribeAdmins();
-      unsubscribeExpenses();
       unsubscribeAgency();
       window.removeEventListener('popstate', handlePopState);
     };
   }, []);
+
+  useEffect(() => {
+    clearDynamicAdminEmails();
+    if (!currentUser?.emailVerified) return;
+
+    const unsubscribeAccess = firebaseSync.subscribeAdminAccess(currentUser, () => {
+      setAdminAccessVersion((version) => version + 1);
+    });
+    return () => {
+      unsubscribeAccess();
+      clearDynamicAdminEmails();
+    };
+  }, [currentUser?.uid, currentUser?.emailVerified]);
+
+  useEffect(() => {
+    if (!hasAdminAccess) return;
+
+    const unsubscribeAdmins = firebaseSync.subscribeAdmins((items) => {
+      storage.setAdminsFromFirebase(items);
+    });
+    const unsubscribeInquiries = firebaseSync.subscribeInquiries((items) => {
+      setInquiries(items);
+      storage.setInquiriesFromFirebase(items);
+    });
+    const unsubscribeCustomers = firebaseSync.subscribeCustomers((items) => {
+      storage.setCustomersFromFirebase(items);
+    });
+    const unsubscribeQuotations = firebaseSync.subscribeQuotations((items) => {
+      storage.setQuotationsFromFirebase(items);
+    });
+    const unsubscribeExpenses = firebaseSync.subscribeExpenses((items) => {
+      storage.setExpensesFromFirebase(items);
+    });
+
+    return () => {
+      unsubscribeAdmins();
+      unsubscribeInquiries();
+      unsubscribeCustomers();
+      unsubscribeQuotations();
+      unsubscribeExpenses();
+    };
+  }, [currentUser?.uid, hasAdminAccess]);
 
   const handleNavigate = (tab: string, filters?: any) => {
     setCurrentTab(tab);

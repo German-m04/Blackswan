@@ -180,7 +180,7 @@ class StorageService {
       ...review,
       id: `rev-${Date.now()}`,
       date: formattedDate,
-      approved: true
+      approved: false
     };
     reviews.unshift(newRev);
     localStorage.setItem(REVIEWS_KEY, JSON.stringify(reviews));
@@ -786,8 +786,8 @@ class StorageService {
       existing.active = true;
       existing.name = newAdmin.name || existing.name;
       existing.role = newAdmin.role || existing.role;
-      this.saveAdmins(admins);
       await firebaseSync.saveAdmin(existing);
+      this.saveAdmins(admins);
       return existing;
     }
 
@@ -799,23 +799,17 @@ class StorageService {
       active: true
     };
     admins.push(created);
+    await firebaseSync.saveAdmin(created);
     this.saveAdmins(admins);
-    try {
-      await firebaseSync.saveAdmin(created);
-    } catch (err) {
-      console.warn('Firebase saveAdmin notice:', err);
-    }
     return created;
   }
 
   public async deleteAdmin(id: string): Promise<void> {
-    const admins = this.getAdmins().filter((a) => a.id !== id && a.email !== id);
-    this.saveAdmins(admins);
-    try {
-      await firebaseSync.deleteAdmin(id);
-    } catch (err) {
-      console.warn('Firebase deleteAdmin notice:', err);
-    }
+    const admins = this.getAdmins();
+    const target = admins.find((a) => a.id === id || a.email === id);
+    if (!target) throw new Error('No se encontró el administrador.');
+    await firebaseSync.deleteAdmin(target.id, target.email);
+    this.saveAdmins(admins.filter((a) => a.id !== target.id));
   }
 
   // --- AGENCY SETTINGS (Domicilio, Horarios & Contenido de Inicio) ---

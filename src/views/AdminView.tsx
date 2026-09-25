@@ -25,7 +25,7 @@ import { AdminBrandsManager } from '../components/AdminBrandsManager';
 import { AdminTeamManager } from '../components/AdminTeamManager';
 import { processImageFile, exportToCsv } from '../utils/imageUtils';
 import { deleteUploadedCarImages, getSupabaseImagePath, uploadPendingCarImages } from '../utils/carImageStorage';
-import { isUserAdmin, firebaseSync, signInWithEmail, signInWithGoogle, resetPassword, getFirebaseAuthErrorMessage, updateDynamicAdminEmails } from '../firebase';
+import { isUserAdmin, firebaseSync, signInWithEmail, signInWithGoogle, resetPassword, requestEmailVerification, getFirebaseAuthErrorMessage } from '../firebase';
 import { 
   Lock, 
   KeyRound, 
@@ -111,6 +111,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const [adminAuthLoading, setAdminAuthLoading] = useState(false);
   const [adminAuthError, setAdminAuthError] = useState<string | null>(null);
   const [adminAuthSuccess, setAdminAuthSuccess] = useState<string | null>(null);
+  const [verificationMessage, setVerificationMessage] = useState<string | null>(null);
   const [adminAuthMode, setAdminAuthMode] = useState<'login' | 'forgot'>('login');
 
   const handleAdminEmailLogin = async (e: React.FormEvent) => {
@@ -1067,28 +1068,6 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
   // Case 2: Signed in user is NOT an authorized administrator -> ACCESS DENIED
   if (!isAdminUser) {
-    const handleSelfAuthorize = () => {
-      if (user.email) {
-        updateDynamicAdminEmails([user.email]);
-        const existingAdmins = storage.getAdmins();
-        if (!existingAdmins.some(a => a.email.toLowerCase() === user.email?.toLowerCase())) {
-          storage.saveAdmins([
-            ...existingAdmins,
-            {
-              id: 'admin-' + Date.now(),
-              email: user.email,
-              name: user.displayName || user.email.split('@')[0],
-              role: 'Administrador General',
-              addedAt: new Date().toISOString(),
-              addedBy: 'Sistema de Acceso Seguro',
-              active: true
-            }
-          ]);
-        }
-        window.location.reload();
-      }
-    };
-
     return (
       <div className="min-h-[70vh] flex items-center justify-center p-4">
         <div className="w-full max-w-md bg-[#0a0a0a] border border-red-500/30 rounded-2xl p-8 space-y-6 text-center shadow-2xl relative overflow-hidden">
@@ -1109,19 +1088,43 @@ export const AdminView: React.FC<AdminViewProps> = ({
               {user.email}
             </p>
             <p className="text-[11px] text-white/50 leading-relaxed pt-1">
-              Esta cuenta no forma parte de la lista de administradores principales (<em>germanmountrichas@gmail.com</em> o <em>blackswan202614@gmail.com</em>).
+              {!user.emailVerified
+                ? 'Verificá tu correo electrónico antes de solicitar acceso al panel.'
+                : 'Esta cuenta no tiene permisos de administrador. Pedile acceso a un administrador autorizado.'}
             </p>
           </div>
 
           <div className="space-y-3 pt-2">
-            <button
-              type="button"
-              onClick={handleSelfAuthorize}
-              className="w-full py-3 bg-[#D4AF37] hover:bg-[#c4a02e] text-black font-bold text-xs uppercase tracking-wider rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-[#D4AF37]/20"
-            >
-              <ShieldCheck className="w-4 h-4 text-black" />
-              <span>Autorizar mi cuenta ({user.email})</span>
-            </button>
+            {!user.emailVerified && (
+              <>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await requestEmailVerification(user);
+                      setVerificationMessage('Te enviamos un enlace de verificación.');
+                    } catch {
+                      setVerificationMessage('No se pudo enviar el enlace. Intentá de nuevo más tarde.');
+                    }
+                  }}
+                  className="w-full py-3 bg-[#D4AF37] hover:bg-[#c4a02e] text-black font-bold text-xs uppercase tracking-wider rounded-xl"
+                >
+                  Enviar correo de verificación
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await user.reload();
+                    await user.getIdToken(true);
+                    window.location.reload();
+                  }}
+                  className="w-full py-3 bg-white/10 hover:bg-white/20 text-white text-xs uppercase tracking-wider rounded-xl"
+                >
+                  Ya verifiqué mi correo
+                </button>
+                {verificationMessage && <p className="text-xs text-white/60">{verificationMessage}</p>}
+              </>
+            )}
 
             {onSignOut && (
               <button

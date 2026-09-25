@@ -132,7 +132,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setLoading(true);
       try {
         const user = await signUpWithEmail(cleanEmail, password, name.trim());
-        setSuccessMessage('¡Cuenta creada con éxito! Bienvenido a Black Swan Motors.');
+        setSuccessMessage('Cuenta creada. Verificá tu correo para poder solicitar acceso al panel.');
         setTimeout(() => {
           if (onSuccess) onSuccess(user);
           onClose();
